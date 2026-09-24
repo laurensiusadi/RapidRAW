@@ -122,6 +122,8 @@ hex = "0.4"
 opt-level = 2
 debug = 1
 incremental = true
+# Crate-local ThinLTO promotes symbols (`*.llvm.<hash>`) that go stale across incremental rebuilds and fail to link.
+lto = "off"
 
 [profile.dev.package."*"]
 opt-level = 3
