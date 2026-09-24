@@ -88,8 +88,20 @@ export default function TitleBar() {
   }
   const outerDragProps = isLinux ? {} : { 'data-tauri-drag-region': 'true' };
 
+  // Tauri's built-in drag-region double-click is a no-op on macOS here: a borderless window has no
+  // zoom button, so tao reports it as not maximizable. toggleMaximize() skips that check.
+  const handleTitleDoubleClick = (e: React.MouseEvent) => {
+    if (isMac && (e.target as HTMLElement).hasAttribute('data-tauri-drag-region')) {
+      appWindow.toggleMaximize();
+    }
+  };
+
   return (
-    <div className="relative pt-2 px-2 w-full z-50 bg-transparent" {...outerDragProps}>
+    <div
+      className="relative pt-2 px-2 w-full z-50 bg-transparent"
+      onDoubleClick={handleTitleDoubleClick}
+      {...outerDragProps}
+    >
       <div
         className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-lg overflow-hidden"
         {...outerDragProps}
