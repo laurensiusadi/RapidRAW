@@ -54,7 +54,7 @@ export default function ImagePicker({ imageName, onImageSelect, onClear, label }
               className="flex items-center justify-center p-0.5 rounded-full bg-bg-tertiary hover:bg-surface
                          w-0 ml-0 opacity-0 group-hover:w-6 group-hover:ml-0 group-hover:opacity-100
                          overflow-hidden pointer-events-none group-hover:pointer-events-auto
-                         transition-all duration-200 ease-in-out"
+                         transition-[width,margin,opacity,background-color] duration-200 ease-in-out"
               data-tooltip={t('ui.imagePicker.clearImage')}
             >
               <X size={14} />

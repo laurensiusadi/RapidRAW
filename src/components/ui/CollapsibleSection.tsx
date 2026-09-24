@@ -114,7 +114,7 @@ export default function CollapsibleSection({
           size={20}
         />
       </div>
-      <div ref={wrapperRef} className="overflow-hidden transition-all duration-300 ease-in-out">
+      <div ref={wrapperRef} className="overflow-hidden transition-[max-height] duration-300 ease-in-out">
         <div
           className={clsx(
             'px-4 pb-4 transition-opacity duration-300',

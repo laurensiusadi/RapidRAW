@@ -113,7 +113,7 @@
 
   body {
     background-color: transparent;
-    @apply text-text-primary font-sans;
+    @apply text-text-primary font-sans antialiased;
   }
 
   *:focus {

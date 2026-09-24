@@ -60,7 +60,7 @@ const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: ColorSwatchP
   };
 
   const getTransform = () => {
-    if (isPressed) return 'scale(0.95)';
+    if (isPressed) return 'scale(0.96)';
     if (isActive) return 'scale(1.1)';
     if (isHovered) return 'scale(1.08)';
     return 'scale(1)';
@@ -79,27 +79,21 @@ const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: ColorSwatchP
       onTouchEnd={handleMouseUp}
     >
       <div
-        className={`absolute inset-0 rounded-full border-2 transition-all duration-200 ease-out ${
+        className={`absolute inset-0 rounded-full border-2 ${
           isActive ? 'border-white opacity-100' : 'scale-100 border-transparent opacity-0'
         }`}
         style={{
           transform: isActive ? (isPressed ? 'scale(1.1)' : 'scale(1.25)') : undefined,
-          transition: isPressed
-            ? 'transform 100ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease-out'
-            : 'transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out',
+          transition: `transform ${isPressed ? 100 : 200}ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease-out`,
         }}
       />
 
       <div
-        className={`absolute inset-0 rounded-full transition-all duration-150 ease-out ${
-          isActive ? 'shadow-lg' : 'shadow-md'
-        }`}
+        className={`absolute inset-0 rounded-full ${isActive ? 'shadow-lg' : 'shadow-md'}`}
         style={{
           backgroundColor: color,
           transform: getTransform(),
-          transition: isPressed
-            ? 'transform 100ms cubic-bezier(0.4, 0, 0.2, 1)'
-            : 'transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transition: `transform ${isPressed ? 100 : 200}ms cubic-bezier(0.2, 0, 0, 1), box-shadow 150ms ease-out`,
         }}
       />
     </button>
@@ -163,7 +157,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as '3way' | 'global')}
-              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all focus:outline-none
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-[color,background-color,box-shadow] focus:outline-none
                 ${
                   isActive
                     ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent text-text-primary'
@@ -179,7 +173,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
 
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all focus:outline-none
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-[color,background-color,box-shadow] focus:outline-none
             ${
               isExpanded
                 ? 'bg-accent text-button-text'

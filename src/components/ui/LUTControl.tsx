@@ -338,7 +338,7 @@ export default function LUTControl({
 
                     <button
                       onClick={handleImport}
-                      className="aspect-square rounded-md bg-bg-tertiary border-2 border-dashed border-text-secondary/25 hover:border-accent flex items-center justify-center text-text-secondary hover:text-text-primary transition-all duration-150 cursor-pointer"
+                      className="aspect-square rounded-md bg-bg-tertiary border-2 border-dashed border-text-secondary/25 hover:border-accent flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors duration-150 cursor-pointer"
                       data-tooltip={t('ui.lut.import')}
                     >
                       <Upload size={18} />

@@ -884,7 +884,7 @@ export default function CropPanel() {
                       </Text>
                       {savedIndex >= 0 && (
                         <button
-                          className="absolute -top-1 -right-1 z-10 p-0.5 rounded-full bg-card-active text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-500 transition-all"
+                          className="absolute -top-1 -right-1 z-10 p-0.5 rounded-full bg-card-active text-text-secondary opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-500 transition-[opacity,color,background-color]"
                           onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleRemoveSavedRatio(savedIndex);
