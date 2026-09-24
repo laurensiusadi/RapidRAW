@@ -96,6 +96,15 @@ const CORNER_ROTATE_CURSORS = [0, 90, 180, 270].map(
     )}") 12 12, grab`,
 );
 
+// react-image-crop hides side handles for a fixed aspect, so those are drawn and handled here.
+type CropSide = 'n' | 'e' | 's' | 'w';
+const CROP_SIDE_HANDLE_STYLES: Record<CropSide, React.CSSProperties> = {
+  n: { top: 0, left: '50%', transform: 'translate(-50%, -50%)', cursor: 'ns-resize' },
+  e: { top: '50%', right: 0, transform: 'translate(50%, -50%)', cursor: 'ew-resize' },
+  s: { bottom: 0, left: '50%', transform: 'translate(-50%, 50%)', cursor: 'ns-resize' },
+  w: { top: '50%', left: 0, transform: 'translate(-50%, -50%)', cursor: 'ew-resize' },
+};
+
 interface MaskOverlayProps {
   adjustments: Adjustments;
   imageHeight: number;
@@ -1423,6 +1432,13 @@ const ImageCanvas = memo(
       rotation: number;
     } | null>(null);
     const [cornerRotateHover, setCornerRotateHover] = useState<number | null>(null);
+    const sideResizeRef = useRef<{
+      side: CropSide;
+      startX: number;
+      startY: number;
+      box: { left: number; top: number; right: number; bottom: number };
+      area: DOMRect;
+    } | null>(null);
     const [draftGuideLine, setDraftGuideLine] = useState<{ p1: Coord; p2: Coord } | null>(null);
     const [localDragLines, setLocalDragLines] = useState<any[] | null>(null);
 
@@ -3060,6 +3076,68 @@ const ImageCanvas = memo(
       setAdjustments((prev: Adjustments) => ({ ...prev, rotation: drag.rotation }));
     };
 
+    const handleSideResizeDown = (side: CropSide) => (e: React.PointerEvent<HTMLDivElement>) => {
+      const box = getCropClientBox();
+      const area = cropAreaRef.current?.getBoundingClientRect();
+      if (e.button !== 0 || !box || !area) return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      sideResizeRef.current = { side, startX: e.clientX, startY: e.clientY, box, area };
+    };
+
+    // Moves the dragged edge; the other dimension follows the locked ratio, centered on the crop.
+    const handleSideResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = sideResizeRef.current;
+      if (!drag) return;
+      const { side, box, area } = drag;
+      const aspect = (box.right - box.left) / (box.bottom - box.top);
+      const cx = (box.left + box.right) / 2;
+      const cy = (box.top + box.bottom) / 2;
+      let left: number;
+      let top: number;
+      let width: number;
+      let height: number;
+
+      if (side === 'n' || side === 's') {
+        const maxHeight = Math.min(
+          side === 'n' ? box.bottom - area.top : area.bottom - box.top,
+          (2 * Math.min(cx - area.left, area.right - cx)) / aspect,
+        );
+        const dy = e.clientY - drag.startY;
+        height = Math.min(maxHeight, box.bottom - box.top + (side === 'n' ? -dy : dy));
+        width = height * aspect;
+        left = cx - width / 2;
+        top = side === 'n' ? box.bottom - height : box.top;
+      } else {
+        const maxWidth = Math.min(
+          side === 'w' ? box.right - area.left : area.right - box.left,
+          2 * Math.min(cy - area.top, area.bottom - cy) * aspect,
+        );
+        const dx = e.clientX - drag.startX;
+        width = Math.min(maxWidth, box.right - box.left + (side === 'w' ? -dx : dx));
+        height = width / aspect;
+        top = cy - height / 2;
+        left = side === 'w' ? box.right - width : box.left;
+      }
+      if (width <= 0 || height <= 0) return;
+
+      const next: PercentCrop = {
+        unit: '%',
+        x: ((left - area.left) / area.width) * 100,
+        y: ((top - area.top) / area.height) * 100,
+        width: (width / area.width) * 100,
+        height: (height / area.height) * 100,
+      };
+      setCrop(next, next);
+    };
+
+    const handleSideResizeUp = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!sideResizeRef.current) return;
+      sideResizeRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      if (crop?.unit === '%') handleCropComplete(crop, crop as PercentCrop);
+    };
+
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
         return { width: 0, height: 0 };
@@ -3507,13 +3585,27 @@ const ImageCanvas = memo(
                       ? 'none'
                       : overlayMode || 'none';
                   return (
-                    <CompositionOverlays
-                      width={width}
-                      height={height}
-                      mode={currentOverlayMode}
-                      rotation={overlayRotation || 0}
-                      denseVisible={showDenseGrid}
-                    />
+                    <>
+                      <CompositionOverlays
+                        width={width}
+                        height={height}
+                        mode={currentOverlayMode}
+                        rotation={overlayRotation || 0}
+                        denseVisible={showDenseGrid}
+                      />
+                      {adjustments.aspectRatio &&
+                        (['n', 'e', 's', 'w'] as const).map((side) => (
+                          <div
+                            key={side}
+                            className="ReactCrop__drag-handle"
+                            style={CROP_SIDE_HANDLE_STYLES[side]}
+                            onPointerDown={handleSideResizeDown(side)}
+                            onPointerMove={handleSideResizeMove}
+                            onPointerUp={handleSideResizeUp}
+                            onPointerCancel={handleSideResizeUp}
+                          />
+                        ))}
+                    </>
                   );
                 }}
               >
