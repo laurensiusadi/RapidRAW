@@ -1595,7 +1595,7 @@
       "nativeTitlebarDesc": "使用系统默认的窗口标题栏，而非 RapidRAW 的自定义标题栏。",
       "neutralGreyCanvas": "中性灰画布",
       "neutralGreyCanvasDesc": "使用中性灰画布，以便在不更改应用主题的情况下进行更准确的色彩和曝光分级。",
-      "poppins": "Poppins",
+      "inter": "Inter",
       "showImageCounts": "显示图像计数",
       "system": "系统默认",
       "theme": "主题",

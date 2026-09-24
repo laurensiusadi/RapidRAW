@@ -474,11 +474,11 @@ export const useAppInitialization = ({
       root.style.setProperty(key, value as string);
     });
 
-    const fontFamily = appSettings?.fontFamily || 'poppins';
+    const fontFamily = appSettings?.fontFamily || 'inter';
     const fontStack =
       fontFamily === 'system'
         ? '-apple-system, BlinkMacSystemFont, system-ui, sans-serif'
-        : "'Poppins', system-ui, sans-serif";
+        : "'Inter', system-ui, sans-serif";
     root.style.setProperty('--font-family', fontStack);
   }, [theme, appSettings?.fontFamily]);
 };

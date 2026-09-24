@@ -1595,7 +1595,7 @@
       "nativeTitlebarDesc": "RapidRAW의 사용자 지정 제목 표시줄 대신 시스템 기본 창 제목 표시줄을 사용합니다.",
       "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
       "neutralGreyCanvasDesc": "앱 테마를 변경하지 않고 더 정확한 색상 및 노출 보정을 위해 뉴트럴 그레이 캔버스를 사용합니다.",
-      "poppins": "Poppins",
+      "inter": "Inter",
       "showImageCounts": "이미지 개수 표시",
       "system": "시스템 기본값",
       "theme": "테마",

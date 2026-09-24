@@ -1597,7 +1597,7 @@
       "nativeTitlebarDesc": "Use your system's default window titlebar instead of RapidRAW's custom one.",
       "neutralGreyCanvas": "Neutral Grey Canvas",
       "neutralGreyCanvasDesc": "Use a neutral grey canvas for more accurate color and exposure grading without changing the app theme.",
-      "poppins": "Poppins",
+      "inter": "Inter",
       "showImageCounts": "Show Image Counts",
       "system": "System Default",
       "theme": "Theme",

@@ -1595,7 +1595,7 @@
       "nativeTitlebarDesc": "RapidRAWカスタムのもの代わりに、システムのデフォルトのウィンドウタイトルバーを使用します。",
       "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
       "neutralGreyCanvasDesc": "アプリのテーマを変更せずに、より正確な色と露出のグレーディングを行うために、ニュートラルグレーのキャンバスを使用します。",
-      "poppins": "Poppins",
+      "inter": "Inter",
       "showImageCounts": "画像数を表示",
       "system": "システムデフォルト",
       "theme": "テーマ",

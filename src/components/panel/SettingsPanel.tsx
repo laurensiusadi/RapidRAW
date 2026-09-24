@@ -601,7 +601,7 @@ export default function SettingsPanel({
 
   const fontOptions = useMemo<OptionItem<string>[]>(
     () => [
-      { value: 'poppins', label: t('settings.general.poppins') },
+      { value: 'inter', label: t('settings.general.inter') },
       { value: 'system', label: t('settings.general.system') },
     ],
     [t],
@@ -1221,7 +1221,7 @@ export default function SettingsPanel({
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
                           options={fontOptions}
-                          value={appSettings?.fontFamily || 'poppins'}
+                          value={appSettings?.fontFamily === 'system' ? 'system' : 'inter'}
                           triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>
