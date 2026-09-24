@@ -316,7 +316,12 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => true,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          s.ui.setPanel(Panel.Crop);
+          if (s.ui.activePanel === Panel.Crop) {
+            s.editor.setEditor({ isStraightenActive: false });
+            s.ui.setPanel(Panel.Adjustments);
+          } else {
+            s.ui.setPanel(Panel.Crop);
+          }
         },
       },
       toggle_masks: {
