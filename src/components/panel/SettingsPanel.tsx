@@ -18,8 +18,10 @@ import {
   Image as ImageIcon,
   Mouse,
   Touchpad,
+  FolderInput,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -491,6 +493,8 @@ export default function SettingsPanel({
   const { t } = useTranslation();
   const [isClearing, setIsClearing] = useState(false);
   const [clearMessage, setClearMessage] = useState('');
+  const [isImportingLightroom, setIsImportingLightroom] = useState(false);
+  const [lightroomImportMessage, setLightroomImportMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearMessage, setCacheClearMessage] = useState('');
   const [isClearingAiTags, setIsClearingAiTags] = useState(false);
@@ -779,6 +783,27 @@ export default function SettingsPanel({
     }
   };
 
+  const handleImportLightroom = async () => {
+    const catalogPath = await openDialog({
+      filters: [{ name: t('settings.data.lightroomCatalogFilter'), extensions: ['lrcat'] }],
+    });
+    if (typeof catalogPath !== 'string') {
+      return;
+    }
+    setIsImportingLightroom(true);
+    setLightroomImportMessage('');
+    try {
+      const summary: Record<string, number> = await invoke(Invokes.ImportLightroomCatalog, { catalogPath });
+      setLightroomImportMessage(t('settings.data.statuses.lightroomSuccess', summary));
+      onLibraryRefresh();
+    } catch (err) {
+      console.error('Failed to import Lightroom catalog:', err);
+      setLightroomImportMessage(`Error: ${err}`);
+    } finally {
+      setIsImportingLightroom(false);
+    }
+  };
+
   const executeResetLayout = async () => {
     setIsResettingLayout(true);
     setLayoutResetMessage(t('settings.data.statuses.resettingLayout'));
@@ -892,7 +917,7 @@ export default function SettingsPanel({
   };
 
   const shortcutTagVariants = {
-    visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } },
+    visible: { opacity: 1, scale: 1, transition: { type: 'spring' as const, stiffness: 500, damping: 30 } },
     exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
   };
 
@@ -2388,6 +2413,16 @@ export default function SettingsPanel({
                       {t('settings.data.title')}
                     </Text>
                     <div className="space-y-8">
+                      <DataActionItem
+                        buttonAction={handleImportLightroom}
+                        buttonText={t('settings.data.importLightroomButton')}
+                        description={t('settings.data.importLightroomDesc')}
+                        icon={<FolderInput size={16} className="mr-2" />}
+                        isProcessing={isImportingLightroom}
+                        message={lightroomImportMessage}
+                        title={t('settings.data.importLightroom')}
+                      />
+
                       <DataActionItem
                         buttonAction={handleClearSidecars}
                         buttonText={t('settings.data.clearSidecarsButton')}

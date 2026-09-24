@@ -31,6 +31,7 @@ mod inpainting;
 mod launch_request;
 mod lens_blur;
 mod lens_correction;
+mod lr_catalog_import;
 mod lut_processing;
 mod mask_generation;
 mod multi_exposure;
@@ -2227,6 +2228,7 @@ pub fn run() {
             file_management::apply_auto_adjustments_to_paths,
             file_management::handle_import_presets_from_file,
             file_management::handle_import_legacy_presets_from_file,
+            lr_catalog_import::import_lightroom_catalog,
             file_management::handle_import_presets_from_files,
             file_management::handle_import_presets_from_folders,
             file_management::handle_export_presets_to_file,

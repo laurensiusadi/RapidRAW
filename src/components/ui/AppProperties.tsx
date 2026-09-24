@@ -70,6 +70,7 @@ export enum Invokes {
   HandleImportPresetsFromFiles = 'handle_import_presets_from_files',
   HandleImportPresetsFromFolders = 'handle_import_presets_from_folders',
   HandleImportLegacyPresetsFromFile = 'handle_import_legacy_presets_from_file',
+  ImportLightroomCatalog = 'import_lightroom_catalog',
   ImportFiles = 'import_files',
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
   IsTetheringSupported = 'is_tethering_supported',
