@@ -19,6 +19,7 @@ import {
   FileDown,
   FileUp,
   Folder as FolderIcon,
+  FolderInput,
   FolderOpen,
   FolderPlus,
   Loader2,
@@ -561,6 +562,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     duplicatePreset,
     exportPresetsToFile,
     importPresetsFromFiles,
+    importPresetsFromFolders,
     isLoading,
     movePreset,
     overwritePreset,
@@ -572,6 +574,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const { showContextMenu } = useContextMenu();
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
+  const [isImportingFolder, setIsImportingFolder] = useState(false);
   const [configureModalState, setConfigureModalState] = useState<ModalState>({ isOpen: false, preset: null });
   const [isAddFolderModalOpen, setIsAddFolderModalOpen] = useState(false);
   const [renameFolderState, setRenameFolderState] = useState<FolderState>({ isOpen: false, folder: null });
@@ -1065,6 +1068,34 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
   };
 
+  const handleImportPresetFolder = async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: true,
+        title: t('editor.presets.dialog.importFolderTitle'),
+      });
+      const folderPaths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+      if (folderPaths.length === 0) {
+        return;
+      }
+
+      setIsImportingFolder(true);
+      const { failures } = await importPresetsFromFolders(folderPaths);
+
+      setFolderPreviewsGenerated(new Set<string>());
+      setPreviews({});
+
+      failures.forEach((failure: PresetImportFailure) =>
+        console.error(`Failed to import ${failure.fileName}: ${failure.error}`),
+      );
+    } catch (error) {
+      console.error('Failed to import preset folder:', error);
+    } finally {
+      setIsImportingFolder(false);
+    }
+  };
+
   const handleExport = async (item: UserPreset) => {
     const isFolder = !!item.folder;
     const name = isFolder ? item.folder?.name : item.preset?.name;
@@ -1230,6 +1261,14 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
               data-tooltip={t('editor.presets.tooltips.import')}
             >
               <FileUp size={18} />
+            </button>
+            <button
+              className="p-2 rounded-full hover:bg-surface transition-colors"
+              disabled={isLoading}
+              onClick={handleImportPresetFolder}
+              data-tooltip={t('editor.presets.tooltips.importFolder')}
+            >
+              {isImportingFolder ? <Loader2 size={18} className="animate-spin" /> : <FolderInput size={18} />}
             </button>
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"

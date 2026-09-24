@@ -707,6 +707,7 @@
         "allPresetFiles": "すべてのプリセットファイル",
         "exportAllTitle": "すべてのプリセットを書き出し",
         "exportTitle": "{{type}}を書き出し",
+        "importFolderTitle": "プリセットフォルダをインポート",
         "importPresetsTitle": "プリセットをインポート",
         "legacyPreset": "レガシープリセット",
         "presetFile": "プリセットファイル",
@@ -740,6 +741,7 @@
         "explore": "コミュニティのプリセットを検索",
         "export": "すべてのプリセットを .rrpreset ファイルとして書き出し",
         "import": ".rrpreset ファイルからプリセットをインポート",
+        "importFolder": "プリセットのフォルダをインポート (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "新規プリセットとして保存"
       },
       "types": {

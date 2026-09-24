@@ -730,6 +730,7 @@
         "allPresetFiles": "Tutti i File Predefiniti",
         "exportAllTitle": "Esporta Tutti i Predefiniti",
         "exportTitle": "Esporta {{type}}",
+        "importFolderTitle": "Importa Cartella di Predefiniti",
         "importPresetsTitle": "Importa Predefiniti",
         "legacyPreset": "Predefinito Obsoleto",
         "presetFile": "File Predefinito",
@@ -763,6 +764,7 @@
         "explore": "Esplora i Predefiniti della Community",
         "export": "Esporta tutti i predefiniti in un file .rrpreset",
         "import": "Importa predefiniti da un file .rrpreset",
+        "importFolder": "Importa una cartella di predefiniti (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Salva come nuovo predefinito"
       },
       "types": {

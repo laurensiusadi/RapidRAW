@@ -1,7 +1,7 @@
 use memmap2::{Mmap, MmapOptions};
 use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -3296,6 +3296,90 @@ pub fn handle_import_presets_from_files(
 }
 
 #[tauri::command]
+pub async fn handle_import_presets_from_folders(
+    folder_paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<PresetImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (imported, failures) = collect_folder_presets(&folder_paths);
+
+        let mut current_presets = load_presets(app_handle.clone())?;
+        if !imported.is_empty() {
+            let mut taken_names = collect_top_level_preset_names(&current_presets);
+            merge_imported_items(&mut current_presets, &mut taken_names, imported);
+            save_presets(current_presets.clone(), app_handle)?;
+        }
+
+        Ok(PresetImportResult {
+            presets: current_presets,
+            failures,
+        })
+    })
+    .await
+    .map_err(|e| format!("Preset import task failed: {}", e))?
+}
+
+/// Every directory under the given roots holding preset files becomes one preset folder named after it.
+fn collect_folder_presets(
+    roots: &[impl AsRef<Path>],
+) -> (Vec<PresetItem>, Vec<PresetImportFailure>) {
+    let mut files_by_dir: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+    for entry in roots
+        .iter()
+        .flat_map(|root| WalkDir::new(root).into_iter().filter_map(Result::ok))
+    {
+        let path = entry.path();
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        if matches!(ext.as_str(), "rrpreset" | "xmp" | "lrtemplate")
+            && let Some(parent) = path.parent()
+        {
+            files_by_dir
+                .entry(parent.to_path_buf())
+                .or_default()
+                .insert(path.to_path_buf());
+        }
+    }
+
+    let mut imported: Vec<PresetItem> = Vec::new();
+    let mut failures: Vec<PresetImportFailure> = Vec::new();
+    for (dir, files) in files_by_dir {
+        let mut children: Vec<Preset> = Vec::new();
+        for file in files {
+            let file_path = file.to_string_lossy();
+            match parse_preset_file(&file_path) {
+                Ok(items) => {
+                    for item in items {
+                        match item {
+                            PresetItem::Preset(p) => children.push(p),
+                            folder => imported.push(folder),
+                        }
+                    }
+                }
+                Err(error) => failures.push(PresetImportFailure {
+                    file_name: preset_file_display_name(&file_path),
+                    error,
+                }),
+            }
+        }
+        if !children.is_empty() {
+            let name = dir
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Imported Presets".to_string());
+            imported.push(PresetItem::Folder(PresetFolder {
+                id: String::new(),
+                name,
+                children,
+            }));
+        }
+    }
+    (imported, failures)
+}
+
+#[tauri::command]
 pub fn handle_export_presets_to_file(
     presets_to_export: Vec<PresetItem>,
     file_path: String,
@@ -4310,5 +4394,42 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn folder_import_groups_presets_by_directory() {
+        let root = std::env::temp_dir().join(format!("rr-preset-import-{}", Uuid::new_v4()));
+        for (dir, title) in [("Film A", "Portra"), ("Film A", "Ektar"), ("Film B/Nested", "HP5")] {
+            fs::create_dir_all(root.join(dir)).unwrap();
+            let lua = format!("s = {{\n\ttitle = \"{}\",\n\tBlacks2012 = 5,\n}}", title);
+            fs::write(root.join(dir).join(format!("{}.lrtemplate", title)), lua).unwrap();
+        }
+        fs::write(root.join("Film A/broken.rrpreset"), "not json").unwrap();
+
+        // Overlapping selections must not import a directory twice.
+        let (items, failures) = collect_folder_presets(&[root.clone(), root.join("Film A")]);
+        fs::remove_dir_all(&root).unwrap();
+
+        let folders: Vec<(String, Vec<String>)> = items
+            .into_iter()
+            .map(|item| match item {
+                PresetItem::Folder(f) => (f.name, f.children.into_iter().map(|p| p.name).collect()),
+                PresetItem::Preset(p) => panic!("unexpected loose preset {}", p.name),
+            })
+            .collect();
+        assert_eq!(
+            folders,
+            vec![
+                ("Film A".to_string(), vec!["Ektar".to_string(), "Portra".to_string()]),
+                ("Nested".to_string(), vec!["HP5".to_string()]),
+            ]
+        );
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].file_name, "broken.rrpreset");
     }
 }

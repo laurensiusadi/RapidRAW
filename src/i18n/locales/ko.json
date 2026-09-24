@@ -707,6 +707,7 @@
         "allPresetFiles": "모든 프리셋 파일",
         "exportAllTitle": "모든 프리셋 내보내기",
         "exportTitle": "{{type}} 내보내기",
+        "importFolderTitle": "프리셋 폴더 가져오기",
         "importPresetsTitle": "프리셋 가져오기",
         "legacyPreset": "레거시 프리셋",
         "presetFile": "프리셋 파일",
@@ -740,6 +741,7 @@
         "explore": "커뮤니티 프리셋 둘러보기",
         "export": "모든 프리셋을 .rrpreset 파일로 내보내기",
         "import": ".rrpreset 파일에서 프리셋 가져오기",
+        "importFolder": "프리셋 폴더 가져오기 (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "새 프리셋으로 저장"
       },
       "types": {

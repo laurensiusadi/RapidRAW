@@ -707,6 +707,7 @@
         "allPresetFiles": "所有預設檔案",
         "exportAllTitle": "匯出所有預設",
         "exportTitle": "匯出 {{type}}",
+        "importFolderTitle": "匯入預設資料夾",
         "importPresetsTitle": "匯入預設",
         "legacyPreset": "舊版預設",
         "presetFile": "預設檔案",
@@ -740,6 +741,7 @@
         "explore": "探索社群預設",
         "export": "將所有預設匯出為 .rrpreset 檔案",
         "import": "從 .rrpreset 檔案匯入預設",
+        "importFolder": "匯入預設資料夾 (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "儲存為新預設"
       },
       "types": {

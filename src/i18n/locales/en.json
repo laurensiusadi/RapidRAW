@@ -709,6 +709,7 @@
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",
         "exportTitle": "Export {{type}}",
+        "importFolderTitle": "Import Preset Folder",
         "importPresetsTitle": "Import Presets",
         "legacyPreset": "Legacy Preset",
         "presetFile": "Preset File",
@@ -742,6 +743,7 @@
         "explore": "Explore Community Presets",
         "export": "Export all presets to .rrpreset file",
         "import": "Import presets from .rrpreset file",
+        "importFolder": "Import a folder of presets (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Save as new preset"
       },
       "types": {

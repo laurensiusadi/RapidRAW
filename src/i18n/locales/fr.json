@@ -730,6 +730,7 @@
         "allPresetFiles": "Tous les fichiers de paramètres prédéfinis",
         "exportAllTitle": "Exporter tous les paramètres prédéfinis",
         "exportTitle": "Exporter {{type}}",
+        "importFolderTitle": "Importer un dossier de paramètres prédéfinis",
         "importPresetsTitle": "Importer des paramètres prédéfinis",
         "legacyPreset": "Ancien paramètre prédéfini",
         "presetFile": "Fichier de paramètre prédéfini",
@@ -763,6 +764,7 @@
         "explore": "Explorer les paramètres prédéfinis de la communauté",
         "export": "Exporter tous les paramètres prédéfinis vers un fichier .rrpreset",
         "import": "Importer des paramètres prédéfinis à partir d'un fichier .rrpreset",
+        "importFolder": "Importer un dossier de paramètres prédéfinis (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Enregistrer comme nouveau paramètre prédéfini"
       },
       "types": {

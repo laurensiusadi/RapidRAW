@@ -709,6 +709,7 @@
         "allPresetFiles": "Alle Vorgabendateien",
         "exportAllTitle": "Alle Vorgaben exportieren",
         "exportTitle": "{{type}} exportieren",
+        "importFolderTitle": "Vorgabenordner importieren",
         "importPresetsTitle": "Vorgaben importieren",
         "legacyPreset": "Alte Vorgabe",
         "presetFile": "Vorgabendatei",
@@ -742,6 +743,7 @@
         "explore": "Community-Vorgaben entdecken",
         "export": "Alle Vorgaben als .rrpreset exportieren",
         "import": "Vorgaben aus .rrpreset importieren",
+        "importFolder": "Einen Ordner mit Vorgaben importieren (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Als neue Vorgabe speichern"
       },
       "types": {

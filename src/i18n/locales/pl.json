@@ -751,6 +751,7 @@
         "allPresetFiles": "Wszystkie pliki presetów",
         "exportAllTitle": "Eksportuj wszystkie presety",
         "exportTitle": "Eksportuj {{type}}",
+        "importFolderTitle": "Importuj folder presetów",
         "importPresetsTitle": "Importuj presety",
         "legacyPreset": "Przestarzały preset",
         "presetFile": "Plik presetu",
@@ -784,6 +785,7 @@
         "explore": "Odkryj presety społeczności",
         "export": "Eksportuj wszystkie presety do pliku .rrpreset",
         "import": "Importuj presety z pliku .rrpreset",
+        "importFolder": "Importuj folder presetów (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Zapisz jako nowy preset"
       },
       "types": {

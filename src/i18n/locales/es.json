@@ -730,6 +730,7 @@
         "allPresetFiles": "Todos los archivos de ajustes",
         "exportAllTitle": "Exportar todos los ajustes preestablecidos",
         "exportTitle": "Exportar {{type}}",
+        "importFolderTitle": "Importar carpeta de ajustes preestablecidos",
         "importPresetsTitle": "Importar ajustes preestablecidos",
         "legacyPreset": "Ajuste preestablecido heredado",
         "presetFile": "Archivo de ajuste preestablecido",
@@ -763,6 +764,7 @@
         "explore": "Explorar ajustes de la comunidad",
         "export": "Exportar todos los ajustes a un archivo .rrpreset",
         "import": "Importar ajustes desde un archivo .rrpreset",
+        "importFolder": "Importar una carpeta de ajustes (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Guardar como nuevo ajuste preestablecido"
       },
       "types": {

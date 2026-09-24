@@ -730,6 +730,7 @@
         "allPresetFiles": "Todos os Arquivos de Predefinições",
         "exportAllTitle": "Exportar Todas as Predefinições",
         "exportTitle": "Exportar {{type}}",
+        "importFolderTitle": "Importar Pasta de Predefinições",
         "importPresetsTitle": "Importar Predefinições",
         "legacyPreset": "Predefinição Legada",
         "presetFile": "Arquivo de Predefinição",
@@ -763,6 +764,7 @@
         "explore": "Explorar Predefinições da Comunidade",
         "export": "Exportar todas as predefinições para arquivo .rrpreset",
         "import": "Importar predefinições do arquivo .rrpreset",
+        "importFolder": "Importar uma pasta de predefinições (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Salvar como nova predefinição"
       },
       "types": {

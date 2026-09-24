@@ -751,6 +751,7 @@
         "allPresetFiles": "Все файлы пресетов",
         "exportAllTitle": "Экспортировать все пресеты",
         "exportTitle": "Экспорт: {{type}}",
+        "importFolderTitle": "Импортировать папку пресетов",
         "importPresetsTitle": "Импортировать пресеты",
         "legacyPreset": "Старый пресет",
         "presetFile": "Файл пресета",
@@ -784,6 +785,7 @@
         "explore": "Обзор пресетов сообщества",
         "export": "Экспортировать все пресеты в файл .rrpreset",
         "import": "Импортировать пресеты из файла .rrpreset",
+        "importFolder": "Импортировать папку пресетов (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Сохранить как новый пресет"
       },
       "types": {

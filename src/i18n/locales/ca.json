@@ -709,6 +709,7 @@
         "allPresetFiles": "Tots els fitxers d'ajustos preestablerts",
         "exportAllTitle": "Exportar tots els ajustos preestablerts",
         "exportTitle": "Exportar {{type}}",
+        "importFolderTitle": "Importar carpeta d'ajustos preestablerts",
         "importPresetsTitle": "Importar ajustos preestablerts",
         "legacyPreset": "Ajust preestablert antic",
         "presetFile": "Fitxer d'ajust preestablert",
@@ -742,6 +743,7 @@
         "explore": "Explorar ajustos de la comunitat",
         "export": "Exportar tots els ajustos preestablerts a un fitxer .rrpreset",
         "import": "Importar ajustos preestablerts des d'un fitxer .rrpreset",
+        "importFolder": "Importar una carpeta d'ajustos preestablerts (.rrpreset, .xmp, .lrtemplate)",
         "saveNew": "Desar com a nou ajust preestablert"
       },
       "types": {
