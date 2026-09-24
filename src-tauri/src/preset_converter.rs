@@ -90,6 +90,106 @@ fn extract_tone_curve_points(xmp_str: &str, curve_name: &str) -> Option<Vec<Valu
     }
 }
 
+// ponytail: hand-tuned guess at how far a ±100 parametric slider moves its region, as a
+// fraction of the tonal range; Adobe's curve is unpublished, so tune against real Lightroom renders.
+const PARAMETRIC_STRENGTH: f64 = 0.10;
+
+/// CPU port of `apply_curve` in shader.wgsl (monotone cubic Hermite over 0..255 points).
+fn eval_curve(points: &[(f64, f64)], x: f64) -> f64 {
+    let n = points.len();
+    if n < 2 {
+        return x;
+    }
+    if x <= points[0].0 {
+        return points[0].1;
+    }
+    if x >= points[n - 1].0 {
+        return points[n - 1].1;
+    }
+    let i = points.windows(2).position(|w| x <= w[1].0).unwrap_or(n - 2);
+    let (p1, p2) = (points[i], points[i + 1]);
+    let (p0, p3) = (points[i.saturating_sub(1)], points[(i + 2).min(n - 1)]);
+    let slope = |a: (f64, f64), b: (f64, f64)| (b.1 - a.1) / (b.0 - a.0).max(0.001);
+    let (d_before, d_current, d_after) = (slope(p0, p1), slope(p1, p2), slope(p2, p3));
+
+    let mut m1 = if i == 0 {
+        d_current
+    } else if d_before * d_current <= 0.0 {
+        0.0
+    } else {
+        (d_before + d_current) / 2.0
+    };
+    let mut m2 = if i + 2 == n {
+        d_current
+    } else if d_current * d_after <= 0.0 {
+        0.0
+    } else {
+        (d_current + d_after) / 2.0
+    };
+    if d_current != 0.0 {
+        let (alpha, beta) = (m1 / d_current, m2 / d_current);
+        if alpha * alpha + beta * beta > 9.0 {
+            let tau = 3.0 / (alpha * alpha + beta * beta).sqrt();
+            m1 *= tau;
+            m2 *= tau;
+        }
+    }
+
+    let dx = p2.0 - p1.0;
+    if dx <= 0.0 {
+        return p1.1;
+    }
+    let t = (x - p1.0) / dx;
+    let (t2, t3) = (t * t, t * t * t);
+    let y = (2.0 * t3 - 3.0 * t2 + 1.0) * p1.1
+        + (t3 - 2.0 * t2 + t) * m1 * dx
+        + (-2.0 * t3 + 3.0 * t2) * p2.1
+        + (t3 - t2) * m2 * dx;
+    y.clamp(0.0, 255.0)
+}
+
+/// Approximates Lightroom's parametric (region) tone curve as control points on 0..255.
+/// Each slider shifts its region's midpoint, splits move by the average of their neighbours,
+/// and the endpoints stay fixed.
+fn parametric_curve_points(attrs: &HashMap<String, String>) -> Option<Vec<(f64, f64)>> {
+    let slider = |key: &str| get_attr_as_f64(attrs, key).unwrap_or(0.0) / 100.0 * PARAMETRIC_STRENGTH;
+    let d = [
+        slider("ParametricShadows"),
+        slider("ParametricDarks"),
+        slider("ParametricLights"),
+        slider("ParametricHighlights"),
+    ];
+    if d.iter().all(|v| *v == 0.0) {
+        return None;
+    }
+    let split = |key: &str, default: f64| get_attr_as_f64(attrs, key).unwrap_or(default) / 100.0;
+    let s = split("ParametricShadowSplit", 25.0);
+    let m = split("ParametricMidtoneSplit", 50.0);
+    let h = split("ParametricHighlightSplit", 75.0);
+
+    let control = [
+        (0.0, 0.0),
+        (s / 2.0, d[0]),
+        (s, (d[0] + d[1]) / 2.0),
+        ((s + m) / 2.0, d[1]),
+        (m, (d[1] + d[2]) / 2.0),
+        ((m + h) / 2.0, d[2]),
+        (h, (d[2] + d[3]) / 2.0),
+        ((h + 1.0) / 2.0, d[3]),
+        (1.0, 0.0),
+    ];
+    let mut last_y = 0.0;
+    Some(
+        control
+            .iter()
+            .map(|&(x, dy)| {
+                last_y = (x + dy).clamp(last_y, 1.0);
+                (x * 255.0, last_y * 255.0)
+            })
+            .collect(),
+    )
+}
+
 /// Rewrites an old-style `.lrtemplate` (plain Lua table, no embedded `s.xmp`) into the
 /// XMP-shaped text `convert_xmp_to_preset` reads, so both formats share one mapping.
 pub fn lrtemplate_to_xmp(lua: &str) -> String {
@@ -245,6 +345,27 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         adjustments.insert("hsl".to_string(), Value::Object(hsl_map));
     }
 
+    // Lightroom B&W ignores the color HSL panel and mixes gray from per-color luminance instead.
+    if attrs
+        .get("ConvertToGrayscale")
+        .is_some_and(|v| v.eq_ignore_ascii_case("true"))
+    {
+        adjustments.insert("saturation".to_string(), json!(-100));
+        adjustments.remove("vibrance");
+        let gray_mix: Map<String, Value> = colors
+            .iter()
+            .filter_map(|(src, dst)| {
+                let v = get_attr_as_f64(&attrs, &format!("GrayMixer{}", src))?;
+                (v != 0.0).then(|| (dst.to_string(), json!({ "luminance": v })))
+            })
+            .collect();
+        if gray_mix.is_empty() {
+            adjustments.remove("hsl");
+        } else {
+            adjustments.insert("hsl".to_string(), Value::Object(gray_mix));
+        }
+    }
+
     let mut shadows_map = Map::new();
     let mut midtones_map = Map::new();
     let mut highlights_map = Map::new();
@@ -354,6 +475,24 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
             curves_map.insert(rr_curve.to_string(), Value::Array(points));
         }
     }
+    if let Some(parametric) = parametric_curve_points(&attrs) {
+        let point_curve: Vec<(f64, f64)> = match curves_map.get("luma") {
+            Some(Value::Array(points)) => points
+                .iter()
+                .filter_map(|p| Some((p["x"].as_f64()?, p["y"].as_f64()?)))
+                .collect(),
+            _ => vec![(0.0, 0.0), (255.0, 255.0)],
+        };
+        // Lightroom applies the region sliders before the point curve; bake both into 16 samples.
+        let composed = (0..16)
+            .map(|i| {
+                let x = i as f64 * 17.0;
+                let y = eval_curve(&point_curve, eval_curve(&parametric, x));
+                json!({"x": x as u32, "y": y.round() as u32})
+            })
+            .collect();
+        curves_map.insert("luma".to_string(), Value::Array(composed));
+    }
     if !curves_map.is_empty() {
         adjustments.insert("curves".to_string(), Value::Object(curves_map));
     }
@@ -418,5 +557,43 @@ mod tests {
         assert_eq!(a["hsl"]["greens"], json!({"hue": 15.0, "saturation": -55}));
         assert_eq!(a["curves"]["luma"], json!([{"x": 0, "y": 5}, {"x": 255, "y": 255}]));
         assert_eq!(a["curves"]["red"][1], json!({"x": 116, "y": 133}));
+    }
+
+    #[test]
+    fn grayscale_uses_gray_mixer() {
+        // Trimmed from VSCO Film 01 "S - Kodak TRI-X 400".
+        let lua = "s = {\n\ttitle = \"TRI-X\",\n\tConvertToGrayscale = true,\n\tGrayMixerAqua = 25,\n\
+                   \tGrayMixerOrange = 0,\n\tGrayMixerRed = -10,\n\tHueAdjustmentRed = 8,\n\tVibrance = 10,\n}";
+        let a = convert_xmp_to_preset(&lrtemplate_to_xmp(lua)).unwrap().adjustments;
+        assert_eq!(a["saturation"], -100);
+        assert!(a.get("vibrance").is_none());
+        assert_eq!(
+            a["hsl"],
+            json!({"aquas": {"luminance": 25.0}, "reds": {"luminance": -10.0}})
+        );
+    }
+
+    #[test]
+    fn parametric_sliders_bake_into_luma_curve() {
+        // Portra 400: region sliders plus a point curve lifting black to 6.
+        let xmp = r#"crs:ParametricShadows="0" crs:ParametricDarks="-35" crs:ParametricLights="+20"
+            crs:ParametricHighlights="-20" crs:ParametricShadowSplit="15" crs:ParametricMidtoneSplit="35"
+            crs:ParametricHighlightSplit="75"
+            <crs:ToneCurvePV2012><rdf:Seq><rdf:li>0, 6</rdf:li><rdf:li>255, 255</rdf:li></rdf:Seq></crs:ToneCurvePV2012>"#;
+        let p = convert_xmp_to_preset(xmp).unwrap();
+        let ys: Vec<f64> = p.adjustments["curves"]["luma"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|pt| pt["y"].as_f64().unwrap())
+            .collect();
+        let point_only = |x: f64| 5.0 + x * 250.0 / 255.0;
+
+        assert_eq!(ys.len(), 16);
+        assert_eq!((ys[0], ys[15]), (5.0, 255.0));
+        assert!(ys.windows(2).all(|w| w[0] <= w[1]), "curve must stay monotone: {:?}", ys);
+        assert!(ys[4] < point_only(68.0) - 5.0, "Darks -35 should pull x=68 down: {:?}", ys);
+        assert!(ys[8] > point_only(136.0) + 3.0, "Lights +20 should lift x=136: {:?}", ys);
+        assert_eq!(eval_curve(&[(0.0, 0.0), (255.0, 255.0)], 100.0), 100.0);
     }
 }
