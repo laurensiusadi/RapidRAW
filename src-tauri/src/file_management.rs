@@ -3184,7 +3184,7 @@ fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
                 .map(|m| m.as_str().replace(r#"\""#, r#"""#))
                 .unwrap_or(content)
         } else {
-            content
+            preset_converter::lrtemplate_to_xmp(&content)
         }
     } else {
         content

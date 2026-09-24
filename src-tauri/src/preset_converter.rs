@@ -90,6 +90,29 @@ fn extract_tone_curve_points(xmp_str: &str, curve_name: &str) -> Option<Vec<Valu
     }
 }
 
+/// Rewrites an old-style `.lrtemplate` (plain Lua table, no embedded `s.xmp`) into the
+/// XMP-shaped text `convert_xmp_to_preset` reads, so both formats share one mapping.
+pub fn lrtemplate_to_xmp(lua: &str) -> String {
+    let mut out = String::new();
+    if let Some(c) = regex!(r#"(?m)^\s*title = "([^"]*)""#).captures(lua) {
+        out += &format!("<crs:Name><rdf:Alt><rdf:li>{}</rdf:li></rdf:Alt></crs:Name>", c[1].trim());
+    }
+    for c in regex!(r#"(?m)^\s*([A-Za-z0-9]+) = ("[^"]*"|[-+\d.]+|true|false),"#).captures_iter(lua) {
+        out += &format!(r#" crs:{}="{}""#, &c[1], c[2].trim_matches('"'));
+    }
+    for c in regex!(r"(ToneCurvePV2012\w*) = \{([^}]*)\}").captures_iter(lua) {
+        let nums: Vec<&str> = c[2].split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+        out += &format!("<crs:{}><rdf:Seq>", &c[1]);
+        for pair in nums.chunks(2) {
+            if let [x, y] = pair {
+                out += &format!("<rdf:li>{}, {}</rdf:li>", x, y);
+            }
+        }
+        out += &format!("</rdf:Seq></crs:{}>", &c[1]);
+    }
+    out
+}
+
 pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     let xmp_one_line = xmp_content.split('\n').collect::<Vec<_>>().join(" ");
 
@@ -346,4 +369,54 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         include_crop_transform: Some(false),
         preset_type: Some("style".to_string()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Trimmed from VSCO Film 01 "S - Kodak Portra 400".
+    const PORTRA_400: &str = r#"s = {
+	title = "S - Kodak Portra 400 ",
+	type = "Develop",
+	value = {
+		settings = {
+			Blacks2012 = 25,
+			CameraProfile = "Adobe Standard",
+			ConvertToGrayscale = false,
+			HueAdjustmentGreen = 20,
+			SaturationAdjustmentGreen = -55,
+			Shadows2012 = 10,
+			ToneCurvePV2012 = {
+				0,
+				6,
+				255,
+				255,
+			},
+			ToneCurvePV2012Red = {
+				0,
+				0,
+				116,
+				133,
+				255,
+				255,
+			},
+		},
+	},
+}"#;
+
+    #[test]
+    fn lua_lrtemplate_converts() {
+        let raw = convert_xmp_to_preset(PORTRA_400).unwrap();
+        assert_eq!(raw.adjustments, json!({}), "raw Lua should not parse as XMP");
+
+        let p = convert_xmp_to_preset(&lrtemplate_to_xmp(PORTRA_400)).unwrap();
+        let a = &p.adjustments;
+        assert_eq!(p.name, "S - Kodak Portra 400");
+        assert_eq!(a["blacks"], 25);
+        assert_eq!(a["shadows"], 15.0);
+        assert_eq!(a["hsl"]["greens"], json!({"hue": 15.0, "saturation": -55}));
+        assert_eq!(a["curves"]["luma"], json!([{"x": 0, "y": 5}, {"x": 255, "y": 255}]));
+        assert_eq!(a["curves"]["red"][1], json!({"x": 116, "y": 133}));
+    }
 }
