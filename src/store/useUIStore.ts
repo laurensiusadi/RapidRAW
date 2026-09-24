@@ -478,6 +478,11 @@ export const useUIStore = create<UIState>((set, get) => ({
         }
       }
 
+      // The crop overlay only exists on the editor canvas, so opening Crop from the library opens the editor.
+      if (panel === Panel.Crop && state.activeView === 'library' && useEditorStore.getState().selectedImage) {
+        updates.activeView = 'editor';
+      }
+
       return updates;
     }),
 

@@ -80,6 +80,22 @@ interface ImageCanvasProps {
   hasRenderedFirstFrame: boolean;
 }
 
+// Corner rotation: hovering just outside a crop corner rotates the image around the crop center.
+const CORNER_ROTATE_REACH_PX = 40;
+const CORNER_ROTATE_HANDLE_CLEARANCE_PX = 6;
+// Curved double arrow bulging toward the top-left, turned a quarter per corner: TL, TR, BR, BL.
+const CORNER_ROTATE_ARROW = "<path d='M6 18A12 12 0 0 1 18 6'/><path d='M15 3l3 3-3 3'/><path d='M3 15l3 3 3-3'/>";
+const CORNER_ROTATE_CURSORS = [0, 90, 180, 270].map(
+  (deg) =>
+    `url("data:image/svg+xml,${encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'>" +
+        `<g transform='rotate(${deg} 12 12)'>` +
+        `<g stroke='black' stroke-width='4'>${CORNER_ROTATE_ARROW}</g>` +
+        `<g stroke='white' stroke-width='2'>${CORNER_ROTATE_ARROW}</g>` +
+        '</g></svg>',
+    )}") 12 12, grab`,
+);
+
 interface MaskOverlayProps {
   adjustments: Adjustments;
   imageHeight: number;
@@ -1398,6 +1414,15 @@ const ImageCanvas = memo(
     hasRenderedFirstFrame,
   }: ImageCanvasProps) => {
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
+    const setEditor = useEditorStore((state) => state.setEditor);
+    const cropAreaRef = useRef<HTMLDivElement>(null);
+    const cornerRotateRef = useRef<{
+      center: Coord;
+      startAngle: number;
+      startRotation: number;
+      rotation: number;
+    } | null>(null);
+    const [cornerRotateHover, setCornerRotateHover] = useState<number | null>(null);
     const [draftGuideLine, setDraftGuideLine] = useState<{ p1: Coord; p2: Coord } | null>(null);
     const [localDragLines, setLocalDragLines] = useState<any[] | null>(null);
 
@@ -2965,6 +2990,76 @@ const ImageCanvas = memo(
       return `rotate(${rotation}deg)`;
     }, [adjustments.rotation, liveRotation]);
 
+    const canCornerRotate = isCropping && isCropViewVisible && !isStraightenActive && !isGuidedPerspectiveActive;
+
+    // Crop box in client pixels, so hit-testing works at any zoom level.
+    const getCropClientBox = () => {
+      const area = cropAreaRef.current?.getBoundingClientRect();
+      if (!area || !crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) return null;
+      const sx = crop.unit === '%' ? area.width / 100 : area.width / uncroppedImageRenderSize.width;
+      const sy = crop.unit === '%' ? area.height / 100 : area.height / uncroppedImageRenderSize.height;
+      const left = area.left + crop.x * sx;
+      const top = area.top + crop.y * sy;
+      return { left, top, right: left + crop.width * sx, bottom: top + crop.height * sy };
+    };
+
+    // Index (TL, TR, BR, BL) of the crop corner whose rotate zone contains the point, or null.
+    const getCornerRotateZone = (x: number, y: number): number | null => {
+      const box = getCropClientBox();
+      if (!box) return null;
+      const c = CORNER_ROTATE_HANDLE_CLEARANCE_PX;
+      if (!(x < box.left - c || x > box.right + c || y < box.top - c || y > box.bottom + c)) return null;
+      const distances = [
+        Math.hypot(x - box.left, y - box.top),
+        Math.hypot(x - box.right, y - box.top),
+        Math.hypot(x - box.right, y - box.bottom),
+        Math.hypot(x - box.left, y - box.bottom),
+      ];
+      const nearest = distances.indexOf(Math.min(...distances));
+      return distances[nearest] <= CORNER_ROTATE_REACH_PX ? nearest : null;
+    };
+
+    const angleFrom = (center: Coord, x: number, y: number) => (Math.atan2(y - center.y, x - center.x) * 180) / Math.PI;
+
+    const handleCornerRotateDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!canCornerRotate || e.button !== 0 || getCornerRotateZone(e.clientX, e.clientY) === null) return;
+      const box = getCropClientBox();
+      if (!box) return;
+      e.stopPropagation();
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      const center = { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
+      const startRotation = adjustments.rotation || 0;
+      cornerRotateRef.current = {
+        center,
+        startAngle: angleFrom(center, e.clientX, e.clientY),
+        startRotation,
+        rotation: startRotation,
+      };
+      setEditor({ isRotationActive: true, liveRotation: startRotation });
+    };
+
+    const handleCornerRotateMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = cornerRotateRef.current;
+      if (!drag) {
+        const hoverCorner = canCornerRotate ? getCornerRotateZone(e.clientX, e.clientY) : null;
+        if (hoverCorner !== cornerRotateHover) setCornerRotateHover(hoverCorner);
+        return;
+      }
+      const delta = ((angleFrom(drag.center, e.clientX, e.clientY) - drag.startAngle + 540) % 360) - 180;
+      drag.rotation = Math.round(Math.min(45, Math.max(-45, drag.startRotation + delta)) * 10) / 10;
+      setEditor({ liveRotation: drag.rotation });
+    };
+
+    const handleCornerRotateUp = (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = cornerRotateRef.current;
+      if (!drag) return;
+      cornerRotateRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      setEditor({ isRotationActive: false, liveRotation: null });
+      setAdjustments((prev: Adjustments) => ({ ...prev, rotation: drag.rotation }));
+    };
+
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
         return { width: 0, height: 0 };
@@ -3365,9 +3460,20 @@ const ImageCanvas = memo(
             opacity: isCropViewVisible ? 1 : 0,
             pointerEvents: isCropViewVisible ? 'auto' : 'none',
           }}
+          onPointerDownCapture={handleCornerRotateDown}
+          onPointerMove={handleCornerRotateMove}
+          onPointerUp={handleCornerRotateUp}
+          onPointerCancel={handleCornerRotateUp}
         >
+          {cornerRotateHover !== null && (
+            <div
+              className="absolute inset-0"
+              style={{ zIndex: 20, cursor: CORNER_ROTATE_CURSORS[cornerRotateHover] }}
+            />
+          )}
           {cropPreviewUrl && uncroppedImageRenderSize && (
             <div
+              ref={cropAreaRef}
               style={{
                 height: uncroppedImageRenderSize.height,
                 position: 'relative',
