@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { Loader2, Circle, Hexagon, Octagon, Aperture } from 'lucide-react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import Slider from '../ui/Slider';
+import Slider, { useCompactTrackIndent } from '../ui/Slider';
 import Switch from '../ui/Switch';
 import { Adjustments, Effect, CreativeAdjustment } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
@@ -146,6 +146,7 @@ export default function EffectsPanel({
   onDragStateChange,
 }: EffectsPanelProps) {
   const { t } = useTranslation();
+  const headingIndent = useCompactTrackIndent();
   const [isGeneratingDepth, setIsGeneratingDepth] = useState(false);
   const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
 
@@ -197,8 +198,95 @@ export default function EffectsPanel({
 
   return (
     <div className="space-y-4">
+      {!isForMask && adjustmentVisibility.grain !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
+            {t('adjustments.effects.grain')}
+          </Text>
+          <Slider
+            label={t('adjustments.effects.amount')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(Effect.GrainAmount, e.target.value)}
+            step={1}
+            value={adjustments.grainAmount}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            defaultValue={25}
+            label={t('adjustments.effects.size')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(Effect.GrainSize, e.target.value)}
+            step={1}
+            value={adjustments.grainSize}
+            onDragStateChange={onDragStateChange}
+            fillOrigin="min"
+          />
+          <Slider
+            defaultValue={50}
+            label={t('adjustments.effects.roughness')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(Effect.GrainRoughness, e.target.value)}
+            step={1}
+            value={adjustments.grainRoughness}
+            onDragStateChange={onDragStateChange}
+            fillOrigin="min"
+          />
+        </div>
+      )}
+
+      {!isForMask && adjustmentVisibility.vignette !== false && (
+        <div className="p-1 bg-bg-tertiary rounded-md">
+          <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
+            {t('adjustments.effects.vignette')}
+          </Text>
+          <Slider
+            label={t('adjustments.effects.amount')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(Effect.VignetteAmount, e.target.value)}
+            step={1}
+            value={adjustments.vignetteAmount}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            defaultValue={50}
+            label={t('adjustments.effects.midpoint')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(Effect.VignetteMidpoint, e.target.value)}
+            step={1}
+            value={adjustments.vignetteMidpoint}
+            onDragStateChange={onDragStateChange}
+            fillOrigin="min"
+          />
+          <Slider
+            label={t('adjustments.effects.roundness')}
+            max={100}
+            min={-100}
+            onChange={(e: any) => handleAdjustmentChange(Effect.VignetteRoundness, e.target.value)}
+            step={1}
+            value={adjustments.vignetteRoundness}
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            defaultValue={50}
+            label={t('adjustments.effects.feather')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(Effect.VignetteFeather, e.target.value)}
+            step={1}
+            value={adjustments.vignetteFeather}
+            onDragStateChange={onDragStateChange}
+            fillOrigin="min"
+          />
+        </div>
+      )}
+
       <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
+        <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
           {t('adjustments.effects.creative')}
         </Text>
 
@@ -350,93 +438,6 @@ export default function EffectsPanel({
               onDragStateChange={onDragStateChange}
             />
           </div>
-
-          {adjustmentVisibility.vignette !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.vignette')}
-              </Text>
-              <Slider
-                label={t('adjustments.effects.amount')}
-                max={100}
-                min={-100}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteAmount, e.target.value)}
-                step={1}
-                value={adjustments.vignetteAmount}
-                onDragStateChange={onDragStateChange}
-              />
-              <Slider
-                defaultValue={50}
-                label={t('adjustments.effects.midpoint')}
-                max={100}
-                min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteMidpoint, e.target.value)}
-                step={1}
-                value={adjustments.vignetteMidpoint}
-                onDragStateChange={onDragStateChange}
-                fillOrigin="min"
-              />
-              <Slider
-                label={t('adjustments.effects.roundness')}
-                max={100}
-                min={-100}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteRoundness, e.target.value)}
-                step={1}
-                value={adjustments.vignetteRoundness}
-                onDragStateChange={onDragStateChange}
-              />
-              <Slider
-                defaultValue={50}
-                label={t('adjustments.effects.feather')}
-                max={100}
-                min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.VignetteFeather, e.target.value)}
-                step={1}
-                value={adjustments.vignetteFeather}
-                onDragStateChange={onDragStateChange}
-                fillOrigin="min"
-              />
-            </div>
-          )}
-
-          {adjustmentVisibility.grain !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.grain')}
-              </Text>
-              <Slider
-                label={t('adjustments.effects.amount')}
-                max={100}
-                min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainAmount, e.target.value)}
-                step={1}
-                value={adjustments.grainAmount}
-                onDragStateChange={onDragStateChange}
-              />
-              <Slider
-                defaultValue={25}
-                label={t('adjustments.effects.size')}
-                max={100}
-                min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainSize, e.target.value)}
-                step={1}
-                value={adjustments.grainSize}
-                onDragStateChange={onDragStateChange}
-                fillOrigin="min"
-              />
-              <Slider
-                defaultValue={50}
-                label={t('adjustments.effects.roughness')}
-                max={100}
-                min={0}
-                onChange={(e: any) => handleAdjustmentChange(Effect.GrainRoughness, e.target.value)}
-                step={1}
-                value={adjustments.grainRoughness}
-                onDragStateChange={onDragStateChange}
-                fillOrigin="min"
-              />
-            </div>
-          )}
         </div>
       )}
     </div>

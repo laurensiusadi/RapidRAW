@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import Slider from '../ui/Slider';
+import Slider, { useCompactTrackIndent } from '../ui/Slider';
 import { Adjustments, DetailsAdjustment } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
@@ -21,6 +21,7 @@ export default function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const { t } = useTranslation();
+  const headingIndent = useCompactTrackIndent();
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
@@ -33,7 +34,7 @@ export default function DetailsPanel({
     <div className="space-y-4">
       {adjustmentVisibility.sharpening !== false && (
         <div className="p-1 bg-bg-tertiary rounded-md">
-          <Text variant={TextVariants.heading} className="mb-2">
+          <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
             {t('adjustments.details.sharpening')}
           </Text>
           <Slider
@@ -63,7 +64,7 @@ export default function DetailsPanel({
 
       {adjustmentVisibility.noiseReduction !== false && (
         <div className="p-1 bg-bg-tertiary rounded-md">
-          <Text variant={TextVariants.heading} className="mb-2">
+          <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
             {t('adjustments.details.noiseReduction')}
           </Text>
           <Slider
@@ -89,7 +90,7 @@ export default function DetailsPanel({
 
       {!isForMask && adjustmentVisibility.chromaticAberration !== false && (
         <div className="p-1 bg-bg-tertiary rounded-md">
-          <Text variant={TextVariants.heading} className="mb-2">
+          <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
             {t('adjustments.details.chromaticAberration')}
           </Text>
           <Slider

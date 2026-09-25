@@ -180,6 +180,23 @@
   .tint-gradient-track {
     background: linear-gradient(to right, #458d43, #57ce57, #8a8a8a, #9c548a, #be409f) !important;
   }
+  .tone-gradient-track {
+    background: linear-gradient(to right, #3a3a3a, #5a5a5a, #7a7a7a) !important;
+  }
+  .tone-gradient-track-inverted {
+    background: linear-gradient(to left, #3a3a3a, #5a5a5a, #7a7a7a) !important;
+  }
+  .saturation-gradient-track {
+    background: linear-gradient(
+      to right,
+      #3a3a3a 0%,
+      #6a6a6a 25%,
+      #57b35a 52%,
+      #4a80c8 70%,
+      #b04ab0 86%,
+      #c9443f 100%
+    ) !important;
+  }
   .hue-range-track {
     background: linear-gradient(
       to right,

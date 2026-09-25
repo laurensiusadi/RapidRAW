@@ -2,7 +2,7 @@ import { useState, useId, useMemo } from 'react';
 import { Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import Slider from '../ui/Slider';
+import Slider, { useCompactTrackIndent } from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
 import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
 import { Adjustments, ColorGrading } from '../../utils/adjustments';
@@ -278,6 +278,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
 const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange }: ColorPanelProps) => {
   const { t } = useTranslation();
   const [activePrimary, setActivePrimary] = useState('red');
+  const labelIndent = useCompactTrackIndent();
   const colorCalibration = adjustments.colorCalibration || INITIAL_ADJUSTMENTS.colorCalibration;
 
   const PRIMARY_COLORS = useMemo(
@@ -319,11 +320,11 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
 
   return (
     <div className="p-2 bg-bg-tertiary rounded-md mt-4">
-      <Text variant={TextVariants.heading} className="mb-2">
+      <Text variant={TextVariants.heading} className={`mb-2 ${labelIndent}`}>
         {t('adjustments.color.calibration.title')}
       </Text>
       <div>
-        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
+        <Text color={TextColors.primary} weight={TextWeights.medium} className={`mb-1 ${labelIndent}`}>
           {t('adjustments.color.calibration.shadows')}
         </Text>
         <Slider
@@ -339,7 +340,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
         />
       </div>
       <div className="mt-3">
-        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-3">
+        <Text color={TextColors.primary} weight={TextWeights.medium} className={`mb-3 ${labelIndent}`}>
           {t('adjustments.color.calibration.primaries')}
         </Text>
         <div className="flex justify-center gap-6 mb-4 px-1">
@@ -391,6 +392,7 @@ export default function ColorPanel({
   const { t } = useTranslation();
   const [hslTab, setHslTab] = useState<HslTab>('hue');
   const hslTabBubbleId = useId();
+  const labelIndent = useCompactTrackIndent();
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
   const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
@@ -511,7 +513,7 @@ export default function ColorPanel({
         {HSL_PROPERTIES.filter((prop) => hslTab === 'all' || hslTab === prop.tab).map((prop) => (
           <div key={prop.key} className={hslTab === 'all' ? 'mb-3 last:mb-0' : undefined}>
             {hslTab === 'all' && (
-              <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
+              <Text color={TextColors.primary} weight={TextWeights.medium} className={`mb-1 ${labelIndent}`}>
                 {prop.label}
               </Text>
             )}

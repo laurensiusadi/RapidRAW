@@ -5,6 +5,9 @@ import { GLOBAL_KEYS } from './AppProperties';
 // Sliders inside a provider set to true render label, track and value on one row.
 export const CompactSlidersContext = createContext(false);
 
+// Left indent that lines content up with compact slider tracks (w-24 label + gap-2), or '' outside compact mode.
+export const useCompactTrackIndent = () => (useContext(CompactSlidersContext) ? 'pl-26' : '');
+
 type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
   | {

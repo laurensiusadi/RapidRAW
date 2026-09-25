@@ -1,11 +1,10 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { Pipette } from 'lucide-react';
-import Slider from '../ui/Slider';
+import Slider, { useCompactTrackIndent } from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { Adjustments, BasicAdjustment, ColorAdjustment, DetailsAdjustment } from '../../utils/adjustments';
-import { useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface BasicAdjustmentsProps {
@@ -25,114 +24,47 @@ interface ToneMapperSwitchProps {
 
 const Divider = () => <div className="my-2 border-t border-border-color/60" />;
 
+// Light-to-dark track, as Lightroom uses for Contrast and the Presence sliders.
+const INVERTED = 'tone-gradient-track-inverted';
+
+// Two-value switch: "Basic" on the left, "AgX" on the right.
 const ToneMapperSwitch = ({ selectedMapper, onMapperChange }: ToneMapperSwitchProps) => {
   const { t } = useTranslation();
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
-  const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const isAgx = selectedMapper === 'agx';
 
-  const toneMapperOptions = useMemo(
-    () => [
-      {
-        id: 'basic',
-        label: t('adjustments.basic.mappers.basic'),
-        title: t('adjustments.basic.mappers.basicDesc'),
-      },
-      {
-        id: 'agx',
-        label: t('adjustments.basic.mappers.agx'),
-        title: t('adjustments.basic.mappers.agxDesc'),
-      },
-    ],
-    [t],
+  const option = (id: string, label: string, title: string) => (
+    <button
+      type="button"
+      data-tooltip={title}
+      onClick={() => onMapperChange(id)}
+      className={clsx(
+        'text-xs font-medium transition-colors',
+        selectedMapper === id ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary',
+      )}
+    >
+      {label}
+    </button>
   );
 
-  const handleReset = () => onMapperChange('basic');
-
-  useEffect(() => {
-    const selectedIndex = toneMapperOptions.findIndex((m) => m.id === selectedMapper);
-    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-
-    const widthPercent = 100 / toneMapperOptions.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      let initialX;
-      if (selectedMapper === 'agx') {
-        initialX = `${toneMapperOptions.length * 100}%`;
-      } else {
-        initialX = '-25%';
-      }
-
-      setBubbleStyle({
-        x: [initialX, targetX],
-        width: targetWidth,
-      });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({
-        x: targetX,
-        width: targetWidth,
-      });
-    }
-  }, [selectedMapper, toneMapperOptions]);
-
   return (
-    <div className="group mb-3">
-      <div className="flex justify-between items-center mb-2">
-        <div
-          className="grid cursor-pointer"
-          onClick={handleReset}
-          onDoubleClick={handleReset}
-          onMouseEnter={() => setIsLabelHovered(true)}
-          onMouseLeave={() => setIsLabelHovered(false)}
-        >
-          <span
-            aria-hidden={isLabelHovered}
-            className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
-              isLabelHovered ? 'opacity-0' : 'opacity-100'
-            }`}
-          >
-            {t('adjustments.basic.toneMapper')}
-          </span>
-          <span
-            aria-hidden={!isLabelHovered}
-            className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
-              isLabelHovered ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {t('adjustments.basic.reset')}
-          </span>
-        </div>
-      </div>
-      <div className="relative flex w-full p-1 bg-card-active rounded-md">
-        <div className="relative flex w-full">
-          <motion.div
-            className="absolute top-0 bottom-0 z-0 bg-accent"
-            style={{ borderRadius: 6 }}
-            animate={bubbleStyle}
-            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-          />
-          {toneMapperOptions.map((mapper) => (
-            <button
-              key={mapper.id}
-              data-tooltip={mapper.title}
-              onClick={() => onMapperChange(mapper.id)}
-              className={clsx(
-                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
-                {
-                  'text-text-primary hover:bg-surface': selectedMapper !== mapper.id,
-                  'text-button-text': selectedMapper === mapper.id,
-                },
-              )}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
-            >
-              <span className="relative z-10 flex items-center">{mapper.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+      {option('basic', t('adjustments.basic.mappers.basic'), t('adjustments.basic.mappers.basicDesc'))}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isAgx}
+        aria-label={t('adjustments.basic.toneMapper')}
+        onClick={() => onMapperChange(isAgx ? 'basic' : 'agx')}
+        className="relative w-7 h-4 rounded-full bg-card-active"
+      >
+        <motion.span
+          className="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-accent"
+          initial={false}
+          animate={{ x: isAgx ? 12 : 0 }}
+          transition={{ type: 'spring', stiffness: 700, damping: 30 }}
+        />
+      </button>
+      {option('agx', t('adjustments.basic.mappers.agx'), t('adjustments.basic.mappers.agxDesc'))}
     </div>
   );
 };
@@ -161,9 +93,14 @@ export default function BasicAdjustments({
   };
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
+  const headingIndent = useCompactTrackIndent();
   const showPresenceDetails = appSettings?.adjustmentVisibility?.presence !== false;
 
-  const slider = (key: string, label: string, opts: { min?: number; max?: number; step?: number } = {}) => (
+  const slider = (
+    key: string,
+    label: string,
+    opts: { min?: number; max?: number; step?: number; track?: string } = {},
+  ) => (
     <Slider
       label={label}
       max={opts.max ?? 100}
@@ -171,6 +108,7 @@ export default function BasicAdjustments({
       onChange={(e: any) => handleAdjustmentChange(key, e.target.value)}
       step={opts.step ?? 1}
       value={(adjustments as any)[key] ?? 0}
+      trackClassName={opts.track ?? 'tone-gradient-track'}
       onDragStateChange={onDragStateChange}
     />
   );
@@ -179,7 +117,9 @@ export default function BasicAdjustments({
     <div className="space-y-4">
       <div className="p-1 bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-2">
-          <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
+          <Text variant={TextVariants.heading} className={headingIndent}>
+            {t('adjustments.color.whiteBalance')}
+          </Text>
           {!isForMask && toggleWbPicker && (
             <button
               onClick={toggleWbPicker}
@@ -215,14 +155,19 @@ export default function BasicAdjustments({
       </div>
 
       <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
-          {t('adjustments.basic.tone')}
-        </Text>
-        {!hideTonemapper && (
-          <ToneMapperSwitch selectedMapper={adjustments.toneMapper || 'agx'} onMapperChange={handleToneMapperChange} />
-        )}
+        <div className="flex justify-between items-center mb-2">
+          <Text variant={TextVariants.heading} className={headingIndent}>
+            {t('adjustments.basic.tone')}
+          </Text>
+          {!hideTonemapper && (
+            <ToneMapperSwitch
+              selectedMapper={adjustments.toneMapper || 'agx'}
+              onMapperChange={handleToneMapperChange}
+            />
+          )}
+        </div>
         {slider(BasicAdjustment.Exposure, t('adjustments.basic.exposure'), { min: -5, max: 5, step: 0.01 })}
-        {slider(BasicAdjustment.Contrast, t('adjustments.basic.contrast'))}
+        {slider(BasicAdjustment.Contrast, t('adjustments.basic.contrast'), { track: INVERTED })}
         <Divider />
         {slider(BasicAdjustment.Highlights, t('adjustments.basic.highlights'))}
         {slider(BasicAdjustment.Shadows, t('adjustments.basic.shadows'))}
@@ -232,20 +177,20 @@ export default function BasicAdjustments({
       </div>
 
       <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
+        <Text variant={TextVariants.heading} className={`mb-2 ${headingIndent}`}>
           {t('adjustments.details.presence')}
         </Text>
         {showPresenceDetails && (
           <>
-            {slider(DetailsAdjustment.Structure, t('adjustments.details.structure'))}
-            {slider(DetailsAdjustment.Clarity, t('adjustments.details.clarity'))}
-            {slider(DetailsAdjustment.Dehaze, t('adjustments.details.dehaze'))}
-            {!isForMask && slider(DetailsAdjustment.Centré, t('adjustments.details.centre'))}
+            {slider(DetailsAdjustment.Structure, t('adjustments.details.structure'), { track: INVERTED })}
+            {slider(DetailsAdjustment.Clarity, t('adjustments.details.clarity'), { track: INVERTED })}
+            {slider(DetailsAdjustment.Dehaze, t('adjustments.details.dehaze'), { track: INVERTED })}
+            {!isForMask && slider(DetailsAdjustment.Centré, t('adjustments.details.centre'), { track: INVERTED })}
             <Divider />
           </>
         )}
-        {slider(ColorAdjustment.Vibrance, t('adjustments.color.vibrance'))}
-        {slider(ColorAdjustment.Saturation, t('adjustments.color.saturation'))}
+        {slider(ColorAdjustment.Vibrance, t('adjustments.color.vibrance'), { track: 'saturation-gradient-track' })}
+        {slider(ColorAdjustment.Saturation, t('adjustments.color.saturation'), { track: 'saturation-gradient-track' })}
       </div>
     </div>
   );
