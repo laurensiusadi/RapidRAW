@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import { Pipette } from 'lucide-react';
 import Slider from '../ui/Slider';
-import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
+import Text from '../ui/Text';
+import { TextVariants } from '../../types/typography';
+import { Adjustments, BasicAdjustment, ColorAdjustment, DetailsAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +12,8 @@ interface BasicAdjustmentsProps {
   adjustments: Adjustments;
   setAdjustments(adjustments: Partial<Adjustments>): any;
   isForMask?: boolean;
+  isWbPickerActive?: boolean;
+  toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
   appSettings?: any;
 }
@@ -16,18 +21,11 @@ interface BasicAdjustmentsProps {
 interface ToneMapperSwitchProps {
   selectedMapper: string;
   onMapperChange: (mapper: string) => void;
-  exposureValue: number;
-  onExposureChange: (value: number) => void;
-  onDragStateChange?: (isDragging: boolean) => void;
 }
 
-const ToneMapperSwitch = ({
-  selectedMapper,
-  onMapperChange,
-  exposureValue,
-  onExposureChange,
-  onDragStateChange,
-}: ToneMapperSwitchProps) => {
+const Divider = () => <div className="my-2 border-t border-border-color/60" />;
+
+const ToneMapperSwitch = ({ selectedMapper, onMapperChange }: ToneMapperSwitchProps) => {
   const { t } = useTranslation();
   const [bubbleStyle, setBubbleStyle] = useState({});
   const isInitialAnimation = useRef(true);
@@ -49,10 +47,7 @@ const ToneMapperSwitch = ({
     [t],
   );
 
-  const handleReset = () => {
-    onMapperChange('basic');
-    onExposureChange(0);
-  };
+  const handleReset = () => onMapperChange('basic');
 
   useEffect(() => {
     const selectedIndex = toneMapperOptions.findIndex((m) => m.id === selectedMapper);
@@ -111,7 +106,7 @@ const ToneMapperSwitch = ({
           </span>
         </div>
       </div>
-      <div className="w-full p-2 pb-1 bg-card-active rounded-md">
+      <div className="relative flex w-full p-1 bg-card-active rounded-md">
         <div className="relative flex w-full">
           <motion.div
             className="absolute top-0 bottom-0 z-0 bg-accent"
@@ -137,18 +132,6 @@ const ToneMapperSwitch = ({
             </button>
           ))}
         </div>
-        <div className="mt-2.5 px-1">
-          <Slider
-            label={t('adjustments.basic.exposure')}
-            max={5}
-            min={-5}
-            onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
-            step={0.01}
-            value={exposureValue}
-            trackClassName="bg-surface"
-            onDragStateChange={onDragStateChange}
-          />
-        </div>
       </div>
     </div>
   );
@@ -158,12 +141,14 @@ export default function BasicAdjustments({
   adjustments,
   setAdjustments,
   isForMask = false,
+  isWbPickerActive = false,
+  toggleWbPicker,
   onDragStateChange,
   appSettings,
 }: BasicAdjustmentsProps) {
   const { t } = useTranslation();
 
-  const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
+  const handleAdjustmentChange = (key: string, value: any) => {
     const numericValue = parseFloat(value);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
@@ -176,82 +161,92 @@ export default function BasicAdjustments({
   };
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
+  const showPresenceDetails = appSettings?.adjustmentVisibility?.presence !== false;
+
+  const slider = (key: string, label: string, opts: { min?: number; max?: number; step?: number } = {}) => (
+    <Slider
+      label={label}
+      max={opts.max ?? 100}
+      min={opts.min ?? -100}
+      onChange={(e: any) => handleAdjustmentChange(key, e.target.value)}
+      step={opts.step ?? 1}
+      value={(adjustments as any)[key] ?? 0}
+      onDragStateChange={onDragStateChange}
+    />
+  );
 
   return (
-    <div>
-      {hideTonemapper ? (
+    <div className="space-y-4">
+      <div className="p-1 bg-bg-tertiary rounded-md">
+        <div className="flex justify-between items-center mb-2">
+          <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
+          {!isForMask && toggleWbPicker && (
+            <button
+              onClick={toggleWbPicker}
+              className={`p-1.5 rounded-md transition-colors ${
+                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+              }`}
+              data-tooltip={t('adjustments.color.wbPickerTooltip')}
+            >
+              <Pipette size={16} />
+            </button>
+          )}
+        </div>
         <Slider
-          label={t('adjustments.basic.exposure')}
-          max={5}
-          min={-5}
-          onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
-          step={0.01}
-          value={adjustments.exposure}
+          label={t('adjustments.color.temperature')}
+          max={100}
+          min={-100}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Temperature, e.target.value)}
+          step={1}
+          value={adjustments.temperature || 0}
+          trackClassName="temperature-gradient-track"
           onDragStateChange={onDragStateChange}
         />
-      ) : (
-        <ToneMapperSwitch
-          selectedMapper={adjustments.toneMapper || 'agx'}
-          onMapperChange={handleToneMapperChange}
-          exposureValue={adjustments.exposure}
-          onExposureChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
+        <Slider
+          label={t('adjustments.color.tint')}
+          max={100}
+          min={-100}
+          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Tint, e.target.value)}
+          step={1}
+          value={adjustments.tint || 0}
+          trackClassName="tint-gradient-track"
           onDragStateChange={onDragStateChange}
         />
-      )}
-      <Slider
-        label={t('adjustments.basic.contrast')}
-        max={100}
-        min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
-        step={1}
-        value={adjustments.contrast}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
-        label={t('adjustments.basic.highlights')}
-        max={100}
-        min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Highlights, e.target.value)}
-        step={1}
-        value={adjustments.highlights}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
-        label={t('adjustments.basic.shadows')}
-        max={100}
-        min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Shadows, e.target.value)}
-        step={1}
-        value={adjustments.shadows}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
-        label={t('adjustments.basic.whites')}
-        max={100}
-        min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Whites, e.target.value)}
-        step={1}
-        value={adjustments.whites}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
-        label={t('adjustments.basic.blacks')}
-        max={100}
-        min={-100}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
-        step={1}
-        value={adjustments.blacks}
-        onDragStateChange={onDragStateChange}
-      />
-      <Slider
-        label={t('adjustments.basic.brightness')}
-        max={5}
-        min={-5}
-        onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
-        step={0.01}
-        value={adjustments.brightness}
-        onDragStateChange={onDragStateChange}
-      />
+      </div>
+
+      <div className="p-1 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-2">
+          {t('adjustments.basic.tone')}
+        </Text>
+        {!hideTonemapper && (
+          <ToneMapperSwitch selectedMapper={adjustments.toneMapper || 'agx'} onMapperChange={handleToneMapperChange} />
+        )}
+        {slider(BasicAdjustment.Exposure, t('adjustments.basic.exposure'), { min: -5, max: 5, step: 0.01 })}
+        {slider(BasicAdjustment.Contrast, t('adjustments.basic.contrast'))}
+        <Divider />
+        {slider(BasicAdjustment.Highlights, t('adjustments.basic.highlights'))}
+        {slider(BasicAdjustment.Shadows, t('adjustments.basic.shadows'))}
+        {slider(BasicAdjustment.Whites, t('adjustments.basic.whites'))}
+        {slider(BasicAdjustment.Blacks, t('adjustments.basic.blacks'))}
+        {slider(BasicAdjustment.Brightness, t('adjustments.basic.brightness'), { min: -5, max: 5, step: 0.01 })}
+      </div>
+
+      <div className="p-1 bg-bg-tertiary rounded-md">
+        <Text variant={TextVariants.heading} className="mb-2">
+          {t('adjustments.details.presence')}
+        </Text>
+        {showPresenceDetails && (
+          <>
+            {slider(DetailsAdjustment.Structure, t('adjustments.details.structure'))}
+            {slider(DetailsAdjustment.Clarity, t('adjustments.details.clarity'))}
+            {slider(DetailsAdjustment.Dehaze, t('adjustments.details.dehaze'))}
+            {!isForMask && slider(DetailsAdjustment.Centré, t('adjustments.details.centre'))}
+            <Divider />
+          </>
+        )}
+        {slider(ColorAdjustment.Vibrance, t('adjustments.color.vibrance'))}
+        {slider(ColorAdjustment.Saturation, t('adjustments.color.saturation'))}
+      </div>
     </div>
   );
 }

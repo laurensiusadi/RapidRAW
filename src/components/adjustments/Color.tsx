@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Pipette, Sliders } from 'lucide-react';
+import { useState, useId, useMemo } from 'react';
+import { Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
@@ -10,19 +10,13 @@ import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
-interface ColorProps {
-  color: string;
-  name: string;
-  label: string;
-}
+type HslTab = 'hue' | 'saturation' | 'luminance' | 'all';
 
 interface ColorPanelProps {
   adjustments: Adjustments;
   setAdjustments(adjustments: Partial<Adjustments>): any;
   appSettings: AppSettings | null;
   isForMask?: boolean;
-  isWbPickerActive?: boolean;
-  toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
@@ -240,7 +234,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
               transition={{ duration: 0.2 }}
               className="w-full flex justify-center pb-2"
             >
-              <div className="w-full max-w-70">
+              <div className="w-full">
                 <ColorWheel
                   defaultValue={INITIAL_ADJUSTMENTS.colorGrading.global}
                   label={t('adjustments.color.grading.global')}
@@ -392,139 +386,73 @@ export default function ColorPanel({
   setAdjustments,
   appSettings,
   isForMask = false,
-  isWbPickerActive = false,
-  toggleWbPicker,
   onDragStateChange,
 }: ColorPanelProps) {
   const { t } = useTranslation();
-  const [activeColor, setActiveColor] = useState('reds');
+  const [hslTab, setHslTab] = useState<HslTab>('hue');
+  const hslTabBubbleId = useId();
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
   const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
-  const HSL_COLORS = useMemo<Array<ColorProps>>(
+  const HSL_COLORS = useMemo(
     () => [
-      { name: 'reds', color: '#f87171', label: t('adjustments.color.mixerColors.reds') },
-      { name: 'oranges', color: '#fb923c', label: t('adjustments.color.mixerColors.oranges') },
-      { name: 'yellows', color: '#facc15', label: t('adjustments.color.mixerColors.yellows') },
-      { name: 'greens', color: '#4ade80', label: t('adjustments.color.mixerColors.greens') },
-      { name: 'aquas', color: '#2dd4bf', label: t('adjustments.color.mixerColors.aquas') },
-      { name: 'blues', color: '#60a5fa', label: t('adjustments.color.mixerColors.blues') },
-      { name: 'purples', color: '#a78bfa', label: t('adjustments.color.mixerColors.purples') },
-      { name: 'magentas', color: '#f472b6', label: t('adjustments.color.mixerColors.magentas') },
+      { name: 'reds', label: t('adjustments.color.mixerColors.reds') },
+      { name: 'oranges', label: t('adjustments.color.mixerColors.oranges') },
+      { name: 'yellows', label: t('adjustments.color.mixerColors.yellows') },
+      { name: 'greens', label: t('adjustments.color.mixerColors.greens') },
+      { name: 'aquas', label: t('adjustments.color.mixerColors.aquas') },
+      { name: 'blues', label: t('adjustments.color.mixerColors.blues') },
+      { name: 'purples', label: t('adjustments.color.mixerColors.purples') },
+      { name: 'magentas', label: t('adjustments.color.mixerColors.magentas') },
     ],
     [t],
   );
 
-  const colorHueMap = useMemo<Record<string, number>>(
-    () => ({
-      reds: 0,
-      oranges: 30,
-      yellows: 60,
-      greens: 120,
-      aquas: 180,
-      blues: 240,
-      purples: 300,
-      magentas: 340,
-    }),
-    [],
+  const HSL_PROPERTIES = useMemo(
+    () => [
+      { key: ColorAdjustment.Hue, tab: 'hue' as HslTab, label: t('adjustments.color.hue'), track: 'hue-slider' },
+      {
+        key: ColorAdjustment.Saturation,
+        tab: 'saturation' as HslTab,
+        label: t('adjustments.color.saturation'),
+        track: 'sat-slider',
+      },
+      {
+        key: ColorAdjustment.Luminance,
+        tab: 'luminance' as HslTab,
+        label: t('adjustments.color.luminance'),
+        track: 'lum-slider',
+      },
+    ],
+    [t],
   );
-
-  const currentHsl = adjustments?.hsl?.[activeColor] || { hue: 0, saturation: 0, luminance: 0 };
-  const baseHue = colorHueMap[activeColor] || 0;
-  const effectiveHue = baseHue + (currentHsl.hue || 0);
-
-  useEffect(() => {
-    const normalizedHue = ((effectiveHue % 360) + 360) % 360;
-    const effectiveSaturation = (currentHsl.saturation + 100) / 2;
-
-    document.documentElement.style.setProperty(`--hsl-mixer-hue-${activeColor}`, normalizedHue.toString());
-    document.documentElement.style.setProperty(`--hsl-mixer-sat-${activeColor}`, `${effectiveSaturation}%`);
-  }, [effectiveHue, currentHsl.saturation, activeColor]);
 
   const handleAdjustmentChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
 
-  const handleHslChange = (key: ColorAdjustment, value: string) => {
+  const handleHslChange = (color: string, key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       hsl: {
         ...(prev.hsl || {}),
-        [activeColor]: {
-          ...(prev.hsl?.[activeColor] || {}),
+        [color]: {
+          ...(prev.hsl?.[color] || {}),
           [key]: parseFloat(value),
         },
       },
     }));
   };
 
-  const hue_slider = `hue-slider-${activeColor}`;
-  const saturation_slider = `sat-slider-${activeColor}`;
-  const luminance_slider = `lum-slider-${activeColor}`;
+  const hslTabs: Array<{ id: HslTab; label: string }> = [
+    { id: 'hue', label: t('adjustments.color.hue') },
+    { id: 'saturation', label: t('adjustments.color.saturation') },
+    { id: 'luminance', label: t('adjustments.color.luminance') },
+    { id: 'all', label: t('adjustments.color.all') },
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <div className="flex justify-between items-center mb-2">
-          <Text variant={TextVariants.heading}>{t('adjustments.color.whiteBalance')}</Text>
-          {!isForMask && toggleWbPicker && (
-            <button
-              onClick={toggleWbPicker}
-              className={`p-1.5 rounded-md transition-colors ${
-                isWbPickerActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
-              }`}
-              data-tooltip={t('adjustments.color.wbPickerTooltip')}
-            >
-              <Pipette size={16} />
-            </button>
-          )}
-        </div>
-        <Slider
-          label={t('adjustments.color.temperature')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Temperature, e.target.value)}
-          step={1}
-          value={adjustments.temperature || 0}
-          trackClassName="temperature-gradient-track"
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.tint')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Tint, e.target.value)}
-          step={1}
-          value={adjustments.tint || 0}
-          trackClassName="tint-gradient-track"
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
-
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
-          {t('adjustments.color.presence')}
-        </Text>
-        <Slider
-          label={t('adjustments.color.vibrance')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
-          step={1}
-          value={adjustments.vibrance || 0}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.saturation')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
-          step={1}
-          value={adjustments.saturation || 0}
-          onDragStateChange={onDragStateChange}
-        />
-      </div>
-
       <div className="p-1 bg-bg-tertiary rounded-md">
         <Text variant={TextVariants.heading} className="mb-2">
           {isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
@@ -557,48 +485,51 @@ export default function ColorPanel({
         <Text variant={TextVariants.heading} className="mb-3">
           {t('adjustments.color.colorMixer')}
         </Text>
-        <div className="flex justify-between mb-4 px-1">
-          {HSL_COLORS.map(({ name, color, label }) => (
-            <ColorSwatch
-              color={color}
-              isActive={activeColor === name}
-              key={name}
-              name={name}
-              onClick={setActiveColor}
-              ariaLabel={t('adjustments.color.ariaSelectColor', { name: label })}
-            />
+        <div role="tablist" className="relative flex w-full p-0.5 mb-3 bg-bg-primary rounded-md">
+          {hslTabs.map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={hslTab === tab.id}
+              onClick={() => setHslTab(tab.id)}
+              className={`relative flex-1 px-1 py-1 text-xs font-medium rounded-md transition-colors ${
+                hslTab === tab.id ? 'text-button-text' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {hslTab === tab.id && (
+                <motion.span
+                  layoutId={`hsl-tab-bubble-${hslTabBubbleId}`}
+                  className="absolute inset-0 z-0 bg-accent"
+                  style={{ borderRadius: 5 }}
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                />
+              )}
+              <span className="relative z-10">{tab.label}</span>
+            </button>
           ))}
         </div>
-        <Slider
-          label={t('adjustments.color.hue')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
-          step={1}
-          value={currentHsl.hue}
-          trackClassName={hue_slider}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.saturation')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
-          step={1}
-          value={currentHsl.saturation}
-          trackClassName={saturation_slider}
-          onDragStateChange={onDragStateChange}
-        />
-        <Slider
-          label={t('adjustments.color.luminance')}
-          max={100}
-          min={-100}
-          onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
-          step={1}
-          value={currentHsl.luminance}
-          trackClassName={luminance_slider}
-          onDragStateChange={onDragStateChange}
-        />
+        {HSL_PROPERTIES.filter((prop) => hslTab === 'all' || hslTab === prop.tab).map((prop) => (
+          <div key={prop.key} className={hslTab === 'all' ? 'mb-3 last:mb-0' : undefined}>
+            {hslTab === 'all' && (
+              <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
+                {prop.label}
+              </Text>
+            )}
+            {HSL_COLORS.map(({ name, label }) => (
+              <Slider
+                key={name}
+                label={label}
+                max={100}
+                min={-100}
+                onChange={(e: any) => handleHslChange(name, prop.key, e.target.value)}
+                step={1}
+                value={adjustments?.hsl?.[name]?.[prop.key as keyof HueSatLum] ?? 0}
+                trackClassName={`${prop.track}-${name}`}
+                onDragStateChange={onDragStateChange}
+              />
+            ))}
+          </div>
+        ))}
       </div>
 
       {!isForMask && adjustmentVisibility.colorCalibration !== false && (

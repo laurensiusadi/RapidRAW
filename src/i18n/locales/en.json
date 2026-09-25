@@ -14,10 +14,12 @@
       },
       "reset": "Reset",
       "shadows": "Shadows",
+      "tone": "Tone",
       "toneMapper": "Tone Mapper",
       "whites": "Whites"
     },
     "color": {
+      "all": "All",
       "ariaSelectColor": "Select {{name}} color",
       "calibration": {
         "colors": {
@@ -310,6 +312,7 @@
       "title": "Adjustments",
       "tooltips": {
         "autoAdjust": "Auto Adjust Image",
+        "compactSliders": "Compact Sliders",
         "resetAdjustments": "Reset Adjustments",
         "toggleAnalytics": "Toggle Analytics Display"
       }

@@ -218,7 +218,7 @@ const ColorWheel = ({
         </Text>
       </div>
 
-      <div ref={sizerRef} className="relative w-full aspect-square">
+      <div ref={sizerRef} className="relative w-1/2 aspect-square">
         {wheelSize > 0 && (
           <div
             className="absolute inset-0 cursor-pointer"

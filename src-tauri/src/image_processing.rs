@@ -2220,10 +2220,10 @@ fn get_global_adjustments_from_json(
         whites: get_val("basic", "whites", SCALES.whites, None),
         blacks: get_val("basic", "blacks", SCALES.blacks, None),
 
-        saturation: get_val("color", "saturation", SCALES.saturation, None),
-        temperature: get_val("color", "temperature", SCALES.temperature, None),
-        tint: get_val("color", "tint", SCALES.tint, None),
-        vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
+        saturation: get_val("basic", "saturation", SCALES.saturation, None),
+        temperature: get_val("basic", "temperature", SCALES.temperature, None),
+        tint: get_val("basic", "tint", SCALES.tint, None),
+        vibrance: get_val("basic", "vibrance", SCALES.vibrance, None),
         hue: get_val("color", "hue", 1.0, None),
         _pad_color1: 0.0,
         _pad_color2: 0.0,
@@ -2243,10 +2243,10 @@ fn get_global_adjustments_from_json(
             None,
         ),
 
-        clarity: get_val("details", "clarity", SCALES.clarity, None),
-        dehaze: get_val("details", "dehaze", SCALES.dehaze, None),
-        structure: get_val("details", "structure", SCALES.structure, None),
-        centré: get_val("details", "centré", SCALES.centré, None),
+        clarity: get_val("basic", "clarity", SCALES.clarity, None),
+        dehaze: get_val("basic", "dehaze", SCALES.dehaze, None),
+        structure: get_val("basic", "structure", SCALES.structure, None),
+        centré: get_val("basic", "centré", SCALES.centré, None),
         vignette_amount: get_val("effects", "vignetteAmount", SCALES.vignette_amount, None),
         vignette_midpoint: get_val(
             "effects",
@@ -2433,10 +2433,10 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         whites: get_val("basic", "whites", SCALES.whites),
         blacks: get_val("basic", "blacks", SCALES.blacks),
 
-        saturation: get_val("color", "saturation", SCALES.saturation),
-        temperature: get_val("color", "temperature", SCALES.temperature),
-        tint: get_val("color", "tint", SCALES.tint),
-        vibrance: get_val("color", "vibrance", SCALES.vibrance),
+        saturation: get_val("basic", "saturation", SCALES.saturation),
+        temperature: get_val("basic", "temperature", SCALES.temperature),
+        tint: get_val("basic", "tint", SCALES.tint),
+        vibrance: get_val("basic", "vibrance", SCALES.vibrance),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness),
         luma_noise_reduction: get_val("details", "lumaNoiseReduction", SCALES.luma_noise_reduction),
@@ -2446,9 +2446,9 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
             SCALES.color_noise_reduction,
         ),
 
-        clarity: get_val("details", "clarity", SCALES.clarity),
-        dehaze: get_val("details", "dehaze", SCALES.dehaze),
-        structure: get_val("details", "structure", SCALES.structure),
+        clarity: get_val("basic", "clarity", SCALES.clarity),
+        dehaze: get_val("basic", "dehaze", SCALES.dehaze),
+        structure: get_val("basic", "structure", SCALES.structure),
 
         glow_amount: get_val("effects", "glowAmount", SCALES.glow),
         halation_amount: get_val("effects", "halationAmount", SCALES.halation),

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, Rows3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
+import { CompactSlidersContext } from '../../ui/Slider';
 import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
@@ -30,12 +31,14 @@ export default function Controls() {
     useWaveformControls();
   const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  const { appSettings, theme } = useSettingsStore(
+  const { appSettings, theme, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
+      handleSettingsChange: state.handleSettingsChange,
     })),
   );
+  const compactSliders = !!appSettings?.compactSliders;
 
   const { collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
@@ -231,6 +234,18 @@ export default function Controls() {
             <ChartArea size={18} />
           </button>
           <button
+            className={clsx(
+              'p-2 rounded-full transition-colors',
+              compactSliders ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+            )}
+            disabled={!appSettings}
+            onClick={() => appSettings && handleSettingsChange({ ...appSettings, compactSliders: !compactSliders })}
+            aria-pressed={compactSliders}
+            data-tooltip={t('editor.adjustments.tooltips.compactSliders')}
+          >
+            <Rows3 size={18} />
+          </button>
+          <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
             onClick={handleResetAdjustments}
@@ -295,18 +310,20 @@ export default function Controls() {
                   onToggleVisibility={() => handleToggleVisibility(sectionName)}
                   title={title}
                 >
-                  <SectionComponent
-                    adjustments={adjustments}
-                    setAdjustments={setAdjustments}
-                    histogram={histogram}
-                    theme={theme}
-                    handleLutSelect={handleLutSelect}
-                    onLutHover={setLutPreviewOverride}
-                    appSettings={appSettings}
-                    isWbPickerActive={isWbPickerActive}
-                    toggleWbPicker={toggleWbPicker}
-                    onDragStateChange={onDragStateChange}
-                  />
+                  <CompactSlidersContext.Provider value={compactSliders}>
+                    <SectionComponent
+                      adjustments={adjustments}
+                      setAdjustments={setAdjustments}
+                      histogram={histogram}
+                      theme={theme}
+                      handleLutSelect={handleLutSelect}
+                      onLutHover={setLutPreviewOverride}
+                      appSettings={appSettings}
+                      isWbPickerActive={isWbPickerActive}
+                      toggleWbPicker={toggleWbPicker}
+                      onDragStateChange={onDragStateChange}
+                    />
+                  </CompactSlidersContext.Provider>
                 </CollapsibleSection>
               </div>
             );
