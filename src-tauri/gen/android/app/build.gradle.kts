@@ -54,8 +54,11 @@ android {
             }
         }
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-            
+            // Without keystore.properties the release APK is built unsigned.
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
