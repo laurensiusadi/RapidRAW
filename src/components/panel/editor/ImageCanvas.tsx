@@ -80,12 +80,12 @@ interface ImageCanvasProps {
   hasRenderedFirstFrame: boolean;
 }
 
-// Corner rotation: hovering just outside a crop corner rotates the image around the crop center.
+// Corner rotation: hovering just outside a crop corner or left/right side midpoint rotates the image around the crop center.
 const CORNER_ROTATE_REACH_PX = 40;
 const CORNER_ROTATE_HANDLE_CLEARANCE_PX = 6;
-// Curved double arrow bulging toward the top-left, turned a quarter per corner: TL, TR, BR, BL.
+// Curved double arrow bulging toward the top-left, turned to face each zone: TL, TR, R, BR, BL, L.
 const CORNER_ROTATE_ARROW = "<path d='M6 18A12 12 0 0 1 18 6'/><path d='M15 3l3 3-3 3'/><path d='M3 15l3 3 3-3'/>";
-const CORNER_ROTATE_CURSORS = [0, 90, 180, 270].map(
+const CORNER_ROTATE_CURSORS = [0, 90, 135, 180, 270, 315].map(
   (deg) =>
     `url("data:image/svg+xml,${encodeURIComponent(
       "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'>" +
@@ -3019,17 +3019,20 @@ const ImageCanvas = memo(
       return { left, top, right: left + crop.width * sx, bottom: top + crop.height * sy };
     };
 
-    // Index (TL, TR, BR, BL) of the crop corner whose rotate zone contains the point, or null.
+    // Index (TL, TR, R, BR, BL, L) of the crop corner or side midpoint whose rotate zone contains the point, or null.
     const getCornerRotateZone = (x: number, y: number): number | null => {
       const box = getCropClientBox();
       if (!box) return null;
       const c = CORNER_ROTATE_HANDLE_CLEARANCE_PX;
       if (!(x < box.left - c || x > box.right + c || y < box.top - c || y > box.bottom + c)) return null;
+      const midY = (box.top + box.bottom) / 2;
       const distances = [
         Math.hypot(x - box.left, y - box.top),
         Math.hypot(x - box.right, y - box.top),
+        Math.hypot(x - box.right, y - midY),
         Math.hypot(x - box.right, y - box.bottom),
         Math.hypot(x - box.left, y - box.bottom),
+        Math.hypot(x - box.left, y - midY),
       ];
       const nearest = distances.indexOf(Math.min(...distances));
       return distances[nearest] <= CORNER_ROTATE_REACH_PX ? nearest : null;
