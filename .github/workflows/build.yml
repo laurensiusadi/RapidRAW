@@ -35,6 +35,10 @@ on:
         required: false
         type: string
         default: ''
+      fast-profile:
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -51,12 +55,22 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ''
+          cache: false
+
+      # Skips fat LTO and single codegen unit, which dominate build time. Set before the cache step so it keys on these.
+      - name: Use fast release profile
+        if: ${{ inputs.fast-profile }}
+        shell: bash
+        run: |
+          echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+          echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}-${{ contains(inputs.build-args, 'tethering') && 'tethering' || 'standard' }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

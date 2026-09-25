@@ -152,7 +152,8 @@ fn eval_curve(points: &[(f64, f64)], x: f64) -> f64 {
 /// Each slider shifts its region's midpoint, splits move by the average of their neighbours,
 /// and the endpoints stay fixed.
 fn parametric_curve_points(attrs: &HashMap<String, String>) -> Option<Vec<(f64, f64)>> {
-    let slider = |key: &str| get_attr_as_f64(attrs, key).unwrap_or(0.0) / 100.0 * PARAMETRIC_STRENGTH;
+    let slider =
+        |key: &str| get_attr_as_f64(attrs, key).unwrap_or(0.0) / 100.0 * PARAMETRIC_STRENGTH;
     let d = [
         slider("ParametricShadows"),
         slider("ParametricDarks"),
@@ -195,13 +196,21 @@ fn parametric_curve_points(attrs: &HashMap<String, String>) -> Option<Vec<(f64, 
 pub fn lrtemplate_to_xmp(lua: &str) -> String {
     let mut out = String::new();
     if let Some(c) = regex!(r#"(?m)^\s*title = "([^"]*)""#).captures(lua) {
-        out += &format!("<crs:Name><rdf:Alt><rdf:li>{}</rdf:li></rdf:Alt></crs:Name>", c[1].trim());
+        out += &format!(
+            "<crs:Name><rdf:Alt><rdf:li>{}</rdf:li></rdf:Alt></crs:Name>",
+            c[1].trim()
+        );
     }
-    for c in regex!(r#"(?m)^\s*([A-Za-z0-9]+) = ("[^"]*"|[-+\d.]+|true|false),"#).captures_iter(lua) {
+    for c in regex!(r#"(?m)^\s*([A-Za-z0-9]+) = ("[^"]*"|[-+\d.]+|true|false),"#).captures_iter(lua)
+    {
         out += &format!(r#" crs:{}="{}""#, &c[1], c[2].trim_matches('"'));
     }
     for c in regex!(r"(ToneCurvePV2012\w*) = \{([^}]*)\}").captures_iter(lua) {
-        let nums: Vec<&str> = c[2].split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+        let nums: Vec<&str> = c[2]
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
         out += &format!("<crs:{}><rdf:Seq>", &c[1]);
         for pair in nums.chunks(2) {
             if let [x, y] = pair {
@@ -548,7 +557,11 @@ mod tests {
     #[test]
     fn lua_lrtemplate_converts() {
         let raw = convert_xmp_to_preset(PORTRA_400).unwrap();
-        assert_eq!(raw.adjustments, json!({}), "raw Lua should not parse as XMP");
+        assert_eq!(
+            raw.adjustments,
+            json!({}),
+            "raw Lua should not parse as XMP"
+        );
 
         let p = convert_xmp_to_preset(&lrtemplate_to_xmp(PORTRA_400)).unwrap();
         let a = &p.adjustments;
@@ -556,7 +569,10 @@ mod tests {
         assert_eq!(a["blacks"], 25);
         assert_eq!(a["shadows"], 15.0);
         assert_eq!(a["hsl"]["greens"], json!({"hue": 15.0, "saturation": -55}));
-        assert_eq!(a["curves"]["luma"], json!([{"x": 0, "y": 5}, {"x": 255, "y": 255}]));
+        assert_eq!(
+            a["curves"]["luma"],
+            json!([{"x": 0, "y": 5}, {"x": 255, "y": 255}])
+        );
         assert_eq!(a["curves"]["red"][1], json!({"x": 116, "y": 133}));
     }
 
@@ -565,7 +581,9 @@ mod tests {
         // Trimmed from VSCO Film 01 "S - Kodak TRI-X 400".
         let lua = "s = {\n\ttitle = \"TRI-X\",\n\tConvertToGrayscale = true,\n\tGrayMixerAqua = 25,\n\
                    \tGrayMixerOrange = 0,\n\tGrayMixerRed = -10,\n\tHueAdjustmentRed = 8,\n\tVibrance = 10,\n}";
-        let a = convert_xmp_to_preset(&lrtemplate_to_xmp(lua)).unwrap().adjustments;
+        let a = convert_xmp_to_preset(&lrtemplate_to_xmp(lua))
+            .unwrap()
+            .adjustments;
         assert_eq!(a["saturation"], -100);
         assert!(a.get("vibrance").is_none());
         assert_eq!(
@@ -592,9 +610,21 @@ mod tests {
 
         assert_eq!(ys.len(), 16);
         assert_eq!((ys[0], ys[15]), (5.0, 255.0));
-        assert!(ys.windows(2).all(|w| w[0] <= w[1]), "curve must stay monotone: {:?}", ys);
-        assert!(ys[4] < point_only(68.0) - 5.0, "Darks -35 should pull x=68 down: {:?}", ys);
-        assert!(ys[8] > point_only(136.0) + 3.0, "Lights +20 should lift x=136: {:?}", ys);
+        assert!(
+            ys.windows(2).all(|w| w[0] <= w[1]),
+            "curve must stay monotone: {:?}",
+            ys
+        );
+        assert!(
+            ys[4] < point_only(68.0) - 5.0,
+            "Darks -35 should pull x=68 down: {:?}",
+            ys
+        );
+        assert!(
+            ys[8] > point_only(136.0) + 3.0,
+            "Lights +20 should lift x=136: {:?}",
+            ys
+        );
         assert_eq!(eval_curve(&[(0.0, 0.0), (255.0, 255.0)], 100.0), 100.0);
     }
 }

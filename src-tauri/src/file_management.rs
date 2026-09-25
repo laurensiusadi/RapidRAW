@@ -4407,7 +4407,11 @@ mod tests {
     #[test]
     fn folder_import_groups_presets_by_directory() {
         let root = std::env::temp_dir().join(format!("rr-preset-import-{}", Uuid::new_v4()));
-        for (dir, title) in [("Film A", "Portra"), ("Film A", "Ektar"), ("Film B/Nested", "HP5")] {
+        for (dir, title) in [
+            ("Film A", "Portra"),
+            ("Film A", "Ektar"),
+            ("Film B/Nested", "HP5"),
+        ] {
             fs::create_dir_all(root.join(dir)).unwrap();
             let lua = format!("s = {{\n\ttitle = \"{}\",\n\tBlacks2012 = 5,\n}}", title);
             fs::write(root.join(dir).join(format!("{}.lrtemplate", title)), lua).unwrap();
@@ -4428,7 +4432,10 @@ mod tests {
         assert_eq!(
             folders,
             vec![
-                ("Film A".to_string(), vec!["Ektar".to_string(), "Portra".to_string()]),
+                (
+                    "Film A".to_string(),
+                    vec!["Ektar".to_string(), "Portra".to_string()]
+                ),
                 ("Nested".to_string(), vec!["HP5".to_string()]),
             ]
         );
