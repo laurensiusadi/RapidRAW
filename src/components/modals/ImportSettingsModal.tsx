@@ -4,6 +4,7 @@ import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useUIStore } from '../../store/useUIStore';
 
 interface ImportSettingsModalProps {
   fileCount: number;
@@ -18,8 +19,6 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
   const [show, setShow] = useState(false);
 
   const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}');
-  const [organizeByDate, setOrganizeByDate] = useState(false);
-  const [dateFolderFormat, setDateFolderFormat] = useState('YYYY/MM-DD');
   const [deleteAfterImport, setDeleteAfterImport] = useState(false);
   const filenameInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,14 +46,15 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
       finalFilenameTemplate = `${filenameTemplate}_{sequence}`;
     }
 
+    const dateFolderFormat = useUIStore.getState().importDateFolderFormat;
     onSave({
       filenameTemplate: finalFilenameTemplate,
-      organizeByDate,
-      dateFolderFormat,
+      organizeByDate: dateFolderFormat !== null,
+      dateFolderFormat: dateFolderFormat ?? '',
       deleteAfterImport,
     });
     onClose();
-  }, [onSave, onClose, filenameTemplate, organizeByDate, dateFolderFormat, deleteAfterImport, fileCount]);
+  }, [onSave, onClose, filenameTemplate, deleteAfterImport, fileCount]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
@@ -132,31 +132,6 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <Text variant={TextVariants.heading} className="block mb-2">
-              {t('modals.importSettings.folderOrganization')}
-            </Text>
-            <Switch
-              label={t('modals.importSettings.organizeByDate')}
-              checked={organizeByDate}
-              onChange={setOrganizeByDate}
-            />
-            {organizeByDate && (
-              <div className="mt-2">
-                <Text variant={TextVariants.label} className="block mb-1">
-                  {t('modals.importSettings.dateFormat')}
-                </Text>
-                <input
-                  className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
-                  onChange={(e: any) => setDateFolderFormat(e.target.value)}
-                  placeholder={t('modals.importSettings.dateFormatPlaceholder')}
-                  type="text"
-                  value={dateFolderFormat}
-                />
-              </div>
-            )}
           </div>
 
           <div>

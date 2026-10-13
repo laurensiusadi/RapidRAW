@@ -209,6 +209,7 @@
       "copyHere_one": "여기에 이미지 복사",
       "copyHere_other": "여기에 이미지 {{count}}개 복사",
       "deleteFolder": "폴더 삭제",
+      "importFromFolder": "폴더 또는 카드에서 가져오기…",
       "importImages": "이미지 가져오기",
       "moveHere_one": "여기로 이미지 이동",
       "moveHere_other": "여기로 이미지 {{count}}개 이동",
@@ -1350,10 +1351,22 @@
       "start": "시작",
       "title": "HDR로 병합"
     },
+    "importReview": {
+      "alreadyImported": "이미 가져옴",
+      "checking": "중복 확인 중…",
+      "choose": "선택…",
+      "continue": "계속",
+      "destination": "가져올 위치",
+      "duplicateCount": "대상에 이미 있음: {{duplicates}}",
+      "selectAll": "모두 선택",
+      "selectNew": "새 항목 선택",
+      "selectNone": "선택 해제",
+      "selectedCount": "{{total}}장 중 {{selected}}장 선택됨",
+      "title": "사진 가져오기"
+    },
     "importSettings": {
       "cancel": "취소",
       "dateFormat": "날짜 형식",
-      "dateFormatPlaceholder": "예: YYYY/MM-DD",
       "deleteAfterImport": "가져오기 성공 후 원본 삭제",
       "deleteWarning": "파일이 시스템 휴지통으로 이동됩니다.",
       "fileNaming": "파일 이름 지정",

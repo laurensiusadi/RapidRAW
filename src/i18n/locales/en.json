@@ -211,6 +211,7 @@
       "copyHere_one": "Copy image here",
       "copyHere_other": "Copy {{count}} images here",
       "deleteFolder": "Delete Folder",
+      "importFromFolder": "Import from Folder or Card…",
       "importImages": "Import Images",
       "moveHere_one": "Move image here",
       "moveHere_other": "Move {{count}} images here",
@@ -1358,10 +1359,22 @@
       "start": "Start",
       "title": "Merge to HDR"
     },
+    "importReview": {
+      "alreadyImported": "Already imported",
+      "checking": "Checking for duplicates…",
+      "choose": "Choose…",
+      "continue": "Continue",
+      "destination": "Import To",
+      "duplicateCount": "{{duplicates}} already in destination",
+      "selectAll": "Select All",
+      "selectNew": "Select New",
+      "selectNone": "Select None",
+      "selectedCount": "{{selected}} of {{total}} photos selected",
+      "title": "Import Photos"
+    },
     "importSettings": {
       "cancel": "Cancel",
       "dateFormat": "Date Format",
-      "dateFormatPlaceholder": "e.g., YYYY/MM-DD",
       "deleteAfterImport": "Delete originals after successful import",
       "deleteWarning": "Files will be moved to the system trash.",
       "fileNaming": "File Naming",

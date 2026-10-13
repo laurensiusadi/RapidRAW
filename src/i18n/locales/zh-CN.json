@@ -209,6 +209,7 @@
       "copyHere_one": "复制图像至此",
       "copyHere_other": "复制 {{count}} 张图像至此",
       "deleteFolder": "删除文件夹",
+      "importFromFolder": "从文件夹或存储卡导入…",
       "importImages": "导入图像",
       "moveHere_one": "移动图像至此",
       "moveHere_other": "移动 {{count}} 张图像至此",
@@ -1350,10 +1351,22 @@
       "start": "开始",
       "title": "合并为 HDR"
     },
+    "importReview": {
+      "alreadyImported": "已导入",
+      "checking": "正在检查重复项…",
+      "choose": "选择…",
+      "continue": "继续",
+      "destination": "导入到",
+      "duplicateCount": "目标中已存在：{{duplicates}}",
+      "selectAll": "全选",
+      "selectNew": "选择新照片",
+      "selectNone": "全不选",
+      "selectedCount": "已选择 {{selected}} / {{total}} 张照片",
+      "title": "导入照片"
+    },
     "importSettings": {
       "cancel": "取消",
       "dateFormat": "日期格式",
-      "dateFormatPlaceholder": "例如，YYYY/MM-DD",
       "deleteAfterImport": "成功导入后删除原始文件",
       "deleteWarning": "文件将被移至系统回收站。",
       "fileNaming": "文件命名",

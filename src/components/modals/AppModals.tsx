@@ -17,6 +17,7 @@ import RenameFolderModal from './RenameFolderModal';
 import RenameFileModal from './RenameFileModal';
 import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
+import ImportReviewModal from './ImportReviewModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
@@ -317,6 +318,7 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleSaveRename}
       />
       <ConfirmModal {...confirmModalState} onClose={closeConfirmModal} />
+      <ImportReviewModal />
       <ImportSettingsModal
         fileCount={importSourcePaths.length}
         isOpen={isImportModalOpen}

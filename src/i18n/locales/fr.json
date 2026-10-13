@@ -211,6 +211,7 @@
       "copyHere_one": "Copier l'image ici",
       "copyHere_other": "Copier {{count}} images ici",
       "deleteFolder": "Supprimer le dossier",
+      "importFromFolder": "Importer depuis un dossier ou une carte…",
       "importImages": "Importer des images",
       "moveHere_many": "Déplacer {{count}} images ici",
       "moveHere_one": "Déplacer l'image ici",
@@ -1379,10 +1380,22 @@
       "start": "Démarrer",
       "title": "Fusionner en HDR"
     },
+    "importReview": {
+      "alreadyImported": "Déjà importée",
+      "checking": "Recherche des doublons…",
+      "choose": "Choisir…",
+      "continue": "Continuer",
+      "destination": "Importer vers",
+      "duplicateCount": "Déjà dans la destination : {{duplicates}}",
+      "selectAll": "Tout sélectionner",
+      "selectNew": "Sélectionner les nouvelles",
+      "selectNone": "Tout désélectionner",
+      "selectedCount": "{{selected}} sur {{total}} photos sélectionnées",
+      "title": "Importer des photos"
+    },
     "importSettings": {
       "cancel": "Annuler",
       "dateFormat": "Format de date",
-      "dateFormatPlaceholder": "ex. : AAAA/MM-JJ",
       "deleteAfterImport": "Supprimer les originaux après importation réussie",
       "deleteWarning": "Les fichiers seront déplacés vers la corbeille du système.",
       "fileNaming": "Nommage des fichiers",

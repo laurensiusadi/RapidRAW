@@ -209,6 +209,7 @@
       "copyHere_one": "Copiar imatge aquí",
       "copyHere_other": "Copiar {{count}} imatges aquí",
       "deleteFolder": "Eliminar carpeta",
+      "importFromFolder": "Importar des d'una carpeta o targeta…",
       "importImages": "Importar imatges",
       "moveHere_one": "Moure imatge aquí",
       "moveHere_other": "Moure {{count}} imatges aquí",
@@ -1352,10 +1353,22 @@
       "start": "Iniciar",
       "title": "Fusionar a HDR"
     },
+    "importReview": {
+      "alreadyImported": "Ja importada",
+      "checking": "Cercant duplicats…",
+      "choose": "Triar…",
+      "continue": "Continuar",
+      "destination": "Importar a",
+      "duplicateCount": "Ja a la destinació: {{duplicates}}",
+      "selectAll": "Seleccionar-ho tot",
+      "selectNew": "Seleccionar les noves",
+      "selectNone": "No seleccionar-ne cap",
+      "selectedCount": "{{selected}} de {{total}} fotos seleccionades",
+      "title": "Importar fotos"
+    },
     "importSettings": {
       "cancel": "Cancel·lar",
       "dateFormat": "Format de data",
-      "dateFormatPlaceholder": "p. ex., AAAA/MM-DD",
       "deleteAfterImport": "Eliminar els originals després d'una importació correcta",
       "deleteWarning": "Els fitxers es mouran a la paperera del sistema.",
       "fileNaming": "Nomenclatura de fitxers",

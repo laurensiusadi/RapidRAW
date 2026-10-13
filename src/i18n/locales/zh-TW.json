@@ -209,6 +209,7 @@
       "copyHere_one": "複製影像至此",
       "copyHere_other": "複製 {{count}} 張影像至此",
       "deleteFolder": "刪除資料夾",
+      "importFromFolder": "從資料夾或記憶卡匯入…",
       "importImages": "匯入影像",
       "moveHere_one": "移動影像至此",
       "moveHere_other": "移動 {{count}} 張影像至此",
@@ -1350,10 +1351,22 @@
       "start": "開始",
       "title": "合併為 HDR"
     },
+    "importReview": {
+      "alreadyImported": "已匯入",
+      "checking": "正在檢查重複項目…",
+      "choose": "選擇…",
+      "continue": "繼續",
+      "destination": "匯入至",
+      "duplicateCount": "目的地已存在：{{duplicates}}",
+      "selectAll": "全選",
+      "selectNew": "選擇新照片",
+      "selectNone": "全不選",
+      "selectedCount": "已選擇 {{selected}} / {{total}} 張照片",
+      "title": "匯入照片"
+    },
     "importSettings": {
       "cancel": "取消",
       "dateFormat": "日期格式",
-      "dateFormatPlaceholder": "例如，YYYY/MM-DD",
       "deleteAfterImport": "成功匯入後刪除原始檔案",
       "deleteWarning": "檔案將被移至垃圾桶。",
       "fileNaming": "檔案命名",

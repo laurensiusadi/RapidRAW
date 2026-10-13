@@ -12,6 +12,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  HardDrive,
   Images,
   LayoutTemplate,
   LayersArrowDown,
@@ -64,7 +65,7 @@ export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
   handleBackToLibrary: () => void;
   handleRenameFiles: (paths: string[]) => void;
-  handleImportClick: (path: string) => void;
+  handleImportClick: (path: string, fromFolder?: boolean) => void;
   handleLibraryRefresh: () => Promise<void>;
   refreshAllFolderTrees: () => Promise<void>;
   refreshImageList: () => Promise<void>;
@@ -996,6 +997,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: FolderInput,
           label: t('contextMenus.folders.importImages'),
           onClick: () => props.handleImportClick(targetPath),
+        },
+        {
+          icon: HardDrive,
+          label: t('contextMenus.folders.importFromFolder'),
+          onClick: () => props.handleImportClick(targetPath, true),
         },
         { type: OPTION_SEPARATOR },
         {

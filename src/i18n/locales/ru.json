@@ -213,6 +213,7 @@
       "copyHere_one": "Копировать изображение сюда",
       "copyHere_other": "Копировать {{count}} изображений сюда",
       "deleteFolder": "Удалить папку",
+      "importFromFolder": "Импортировать из папки или карты…",
       "importImages": "Импортировать изображения",
       "moveHere_few": "Переместить {{count}} изображений сюда",
       "moveHere_many": "Переместить {{count}} изображений сюда",
@@ -1408,10 +1409,22 @@
       "start": "Начать",
       "title": "Объединение в HDR"
     },
+    "importReview": {
+      "alreadyImported": "Уже импортировано",
+      "checking": "Поиск дубликатов…",
+      "choose": "Выбрать…",
+      "continue": "Продолжить",
+      "destination": "Импортировать в",
+      "duplicateCount": "Уже в папке назначения: {{duplicates}}",
+      "selectAll": "Выбрать все",
+      "selectNew": "Выбрать новые",
+      "selectNone": "Снять выбор",
+      "selectedCount": "Выбрано {{selected}} из {{total}} фото",
+      "title": "Импорт фото"
+    },
     "importSettings": {
       "cancel": "Отмена",
       "dateFormat": "Формат даты",
-      "dateFormatPlaceholder": "например, YYYY/MM-DD",
       "deleteAfterImport": "Удалять исходные файлы после успешного импорта",
       "deleteWarning": "Файлы будут перемещены в системную корзину.",
       "fileNaming": "Именование файлов",

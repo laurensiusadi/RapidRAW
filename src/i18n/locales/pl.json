@@ -213,6 +213,7 @@
       "copyHere_one": "Skopiuj obraz tutaj",
       "copyHere_other": "Skopiuj {{count}} obrazów tutaj",
       "deleteFolder": "Usuń folder",
+      "importFromFolder": "Importuj z folderu lub karty…",
       "importImages": "Importuj obrazy",
       "moveHere_few": "Przenieś {{count}} obrazy tutaj",
       "moveHere_many": "Przenieś {{count}} obrazów tutaj",
@@ -1408,10 +1409,22 @@
       "start": "Start",
       "title": "Scal do HDR"
     },
+    "importReview": {
+      "alreadyImported": "Już zaimportowane",
+      "checking": "Sprawdzanie duplikatów…",
+      "choose": "Wybierz…",
+      "continue": "Dalej",
+      "destination": "Importuj do",
+      "duplicateCount": "Już w miejscu docelowym: {{duplicates}}",
+      "selectAll": "Zaznacz wszystko",
+      "selectNew": "Zaznacz nowe",
+      "selectNone": "Odznacz wszystko",
+      "selectedCount": "Wybrano {{selected}} z {{total}} zdjęć",
+      "title": "Importuj zdjęcia"
+    },
     "importSettings": {
       "cancel": "Anuluj",
       "dateFormat": "Format daty",
-      "dateFormatPlaceholder": "np. RRRR/MM-DD",
       "deleteAfterImport": "Usuń oryginały po pomyślnym imporcie",
       "deleteWarning": "Pliki zostaną przeniesione do systemowego kosza.",
       "fileNaming": "Nazewnictwo plików",

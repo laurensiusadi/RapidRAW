@@ -3997,6 +3997,123 @@ pub async fn import_files(
     Ok(())
 }
 
+/// Polls mounted disks and emits `removable-volume-mounted` with the mount path when a
+/// removable disk (or any disk with a DCIM folder) appears while the app is running.
+// ponytail: 3s polling, swap for OS mount notifications (DiskArbitration/udev/WM_DEVICECHANGE) if latency matters
+#[cfg(not(target_os = "android"))]
+pub fn start_removable_volume_watcher(app_handle: AppHandle) {
+    let mount_points = || -> Vec<(PathBuf, bool)> {
+        Disks::new_with_refreshed_list()
+            .list()
+            .iter()
+            .map(|d| (d.mount_point().to_path_buf(), d.is_removable()))
+            .collect()
+    };
+
+    thread::spawn(move || {
+        let mut known: HashSet<PathBuf> = mount_points().into_iter().map(|(p, _)| p).collect();
+        loop {
+            thread::sleep(std::time::Duration::from_secs(3));
+            let current = mount_points();
+            for (path, removable) in &current {
+                if !known.contains(path) && (*removable || path.join("DCIM").is_dir()) {
+                    let _ = app_handle.emit("removable-volume-mounted", path.to_string_lossy());
+                }
+            }
+            known = current.into_iter().map(|(p, _)| p).collect();
+        }
+    });
+}
+
+/// Lists supported images in an import source: everything under DCIM if present, otherwise up to 4 levels deep.
+#[tauri::command]
+pub async fn scan_import_source(folder: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = PathBuf::from(&folder);
+        let dcim = root.join("DCIM");
+        let (scan_root, max_depth) = if dcim.is_dir() {
+            (dcim, usize::MAX)
+        } else {
+            (root, 4)
+        };
+        list_supported_images(&scan_root, max_depth)
+            .into_iter()
+            .map(|(p, _)| p.to_string_lossy().into_owned())
+            .collect()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+fn list_supported_images(root: &Path, max_depth: usize) -> Vec<(PathBuf, fs::Metadata)> {
+    WalkDir::new(root)
+        .max_depth(max_depth)
+        .into_iter()
+        .filter_entry(|e| e.depth() == 0 || !e.file_name().to_string_lossy().starts_with('.'))
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file() && is_supported_image_file(e.path()))
+        .filter_map(|e| Some((e.path().to_path_buf(), e.metadata().ok()?)))
+        .collect()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCandidate {
+    pub path: String,
+    pub size: u64,
+    /// Capture time as `YYYY-MM-DDTHH:MM:SS`, the same date `import_files` uses for date folders.
+    pub captured: String,
+    pub duplicate: bool,
+}
+
+/// Returns metadata for each source file, flagging ones already present anywhere under the destination.
+/// A duplicate has the same size as a destination file plus the same filename or the same EXIF capture date.
+// ponytail: only checks the destination tree, not every library root
+#[tauri::command]
+pub async fn get_import_candidates(
+    source_paths: Vec<String>,
+    destination_folder: String,
+) -> Result<Vec<ImportCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut existing_by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
+        for (path, meta) in list_supported_images(Path::new(&destination_folder), usize::MAX) {
+            existing_by_size.entry(meta.len()).or_default().push(path);
+        }
+
+        let mut candidates: Vec<ImportCandidate> = source_paths
+            .into_par_iter()
+            .filter_map(|path_str| {
+                let path = Path::new(&path_str);
+                let meta = fs::metadata(path).ok()?;
+                let size = meta.len();
+                let exif_date = exif_processing::try_get_exif_creation_date(path);
+                let duplicate = existing_by_size.get(&size).is_some_and(|matches| {
+                    matches.iter().any(|m| m.file_name() == path.file_name())
+                        || exif_date.is_some_and(|date| {
+                            matches.iter().any(|m| {
+                                exif_processing::try_get_exif_creation_date(m) == Some(date)
+                            })
+                        })
+                });
+                let captured = exif_date
+                    .unwrap_or_else(|| exif_processing::get_creation_date_from_path(path))
+                    .format("%Y-%m-%dT%H:%M:%S")
+                    .to_string();
+                Some(ImportCandidate {
+                    path: path_str,
+                    size,
+                    captured,
+                    duplicate,
+                })
+            })
+            .collect();
+        candidates.sort_by(|a, b| a.captured.cmp(&b.captured));
+        candidates
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 pub fn generate_filename_from_template(
     template: &str,
     original_path: &std::path::Path,
@@ -4403,6 +4520,40 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_candidates_flag_files_already_in_destination() {
+        let root = std::env::temp_dir().join(format!("rr-import-dupes-{}", Uuid::new_v4()));
+        let (source, dest) = (root.join("card"), root.join("library/2026/09-27"));
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(source.join("DSC_0001.jpg"), b"same-bytes").unwrap();
+        fs::write(source.join("DSC_0002.jpg"), b"new photo").unwrap();
+        fs::write(dest.join("DSC_0001.jpg"), b"same-bytes").unwrap();
+        fs::write(dest.join("DSC_0002.jpg"), b"different size").unwrap();
+
+        let sources = ["DSC_0001.jpg", "DSC_0002.jpg"]
+            .map(|n| source.join(n).to_string_lossy().into_owned())
+            .to_vec();
+        let candidates = tauri::async_runtime::block_on(get_import_candidates(
+            sources,
+            root.join("library").to_string_lossy().into_owned(),
+        ))
+        .unwrap();
+        let dupes: HashMap<_, _> = candidates
+            .iter()
+            .map(|c| {
+                (
+                    Path::new(&c.path).file_name().unwrap().to_owned(),
+                    c.duplicate,
+                )
+            })
+            .collect();
+
+        assert!(dupes[std::ffi::OsStr::new("DSC_0001.jpg")]);
+        assert!(!dupes[std::ffi::OsStr::new("DSC_0002.jpg")]);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn folder_import_groups_presets_by_directory() {

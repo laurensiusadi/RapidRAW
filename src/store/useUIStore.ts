@@ -265,6 +265,8 @@ export interface UIState {
   isCopyPasteSettingsModalOpen: boolean;
   importTargetFolder: string | null;
   importSourcePaths: Array<string>;
+  isImportReviewOpen: boolean;
+  importDateFolderFormat: string | null;
   folderActionTarget: string | null;
 
   isCreateAlbumModalOpen: boolean;
@@ -347,6 +349,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   isCopyPasteSettingsModalOpen: false,
   importTargetFolder: null,
   importSourcePaths: [],
+  isImportReviewOpen: false,
+  importDateFolderFormat: null,
   folderActionTarget: null,
   isCreateAlbumModalOpen: false,
   isCreateAlbumGroupModalOpen: false,

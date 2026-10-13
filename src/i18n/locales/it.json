@@ -211,6 +211,7 @@
       "copyHere_one": "Copia immagine qui",
       "copyHere_other": "Copia {{count}} immagini qui",
       "deleteFolder": "Elimina Cartella",
+      "importFromFolder": "Importa da Cartella o Scheda…",
       "importImages": "Importa Immagini",
       "moveHere_many": "Sposta {{count}} immagini qui",
       "moveHere_one": "Sposta immagine qui",
@@ -1379,10 +1380,22 @@
       "start": "Avvia",
       "title": "Unisci in HDR"
     },
+    "importReview": {
+      "alreadyImported": "Già importata",
+      "checking": "Ricerca duplicati…",
+      "choose": "Scegli…",
+      "continue": "Continua",
+      "destination": "Importa in",
+      "duplicateCount": "Già nella destinazione: {{duplicates}}",
+      "selectAll": "Seleziona tutto",
+      "selectNew": "Seleziona nuove",
+      "selectNone": "Deseleziona tutto",
+      "selectedCount": "{{selected}} di {{total}} foto selezionate",
+      "title": "Importa Foto"
+    },
     "importSettings": {
       "cancel": "Annulla",
       "dateFormat": "Formato Data",
-      "dateFormatPlaceholder": "es. YYYY/MM-DD",
       "deleteAfterImport": "Elimina originali dopo importazione completata",
       "deleteWarning": "I file verranno spostati nel cestino di sistema.",
       "fileNaming": "Nomenclatura File",

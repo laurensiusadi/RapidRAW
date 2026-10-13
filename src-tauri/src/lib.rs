@@ -1830,6 +1830,9 @@ pub fn run() {
                 });
             }
 
+            #[cfg(not(target_os = "android"))]
+            file_management::start_removable_volume_watcher(app_handle.clone());
+
             let config_dir = app_handle.path().app_config_dir().expect("Failed to get config dir");
             let crash_flag_path = config_dir.join(".gpu_init_crash_flag");
 
@@ -2238,6 +2241,8 @@ pub fn run() {
             file_management::set_color_label_for_paths,
             file_management::set_rating_for_paths,
             file_management::import_files,
+            file_management::scan_import_source,
+            file_management::get_import_candidates,
             file_management::create_virtual_copy,
             file_management::get_albums,
             file_management::save_albums,

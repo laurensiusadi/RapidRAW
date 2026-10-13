@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
 import { Status } from '../components/ui/ExportImportProperties';
+import { Invokes } from '../components/ui/AppProperties';
+import { loadSavedDestination } from '../components/modals/ImportReviewModal';
 import { useProcessStore } from '../store/useProcessStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -197,10 +201,29 @@ export function useTauriListeners({
           useProcessStore.getState().setImportState({ status: Status.Success });
           refs.current.refreshAllFolderTrees();
           const currentPath = useLibraryStore.getState().currentFolderPath;
-          if (currentPath) {
+          const { importTargetFolder, setUI } = useUIStore.getState();
+          setUI({ importTargetFolder: null });
+          if (importTargetFolder && importTargetFolder !== currentPath) {
+            refs.current.handleSelectSubfolder(importTargetFolder);
+          } else if (currentPath) {
             refs.current.handleSelectSubfolder(currentPath, false);
           }
         }
+      }),
+      listen('removable-volume-mounted', async (event: any) => {
+        const folder = event.payload as string;
+        const files = await invoke<string[]>(Invokes.ScanImportSource, { folder }).catch(() => []);
+        const ui = useUIStore.getState();
+        if (!isEffectActive || files.length === 0 || ui.isImportReviewOpen || ui.isImportModalOpen) return;
+        const destination =
+          loadSavedDestination() ||
+          useLibraryStore.getState().currentFolderPath ||
+          useSettingsStore.getState().appSettings?.lastRootPath;
+        if (!destination) {
+          toast.info(`Found ${files.length} photos on ${folder}. Open a folder to import them into.`);
+          return;
+        }
+        ui.setUI({ importSourcePaths: files, importTargetFolder: destination, isImportReviewOpen: true });
       }),
       listen('import-error', (event: any) => {
         if (isEffectActive)

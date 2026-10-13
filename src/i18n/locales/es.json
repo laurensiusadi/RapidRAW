@@ -211,6 +211,7 @@
       "copyHere_one": "Copiar imagen aquí",
       "copyHere_other": "Copiar {{count}} imágenes aquí",
       "deleteFolder": "Eliminar carpeta",
+      "importFromFolder": "Importar desde carpeta o tarjeta…",
       "importImages": "Importar imágenes",
       "moveHere_many": "Mover {{count}} imágenes aquí",
       "moveHere_one": "Mover imagen aquí",
@@ -1379,10 +1380,22 @@
       "start": "Iniciar",
       "title": "Combinar en HDR"
     },
+    "importReview": {
+      "alreadyImported": "Ya importada",
+      "checking": "Buscando duplicados…",
+      "choose": "Elegir…",
+      "continue": "Continuar",
+      "destination": "Importar a",
+      "duplicateCount": "Ya en el destino: {{duplicates}}",
+      "selectAll": "Seleccionar todo",
+      "selectNew": "Seleccionar nuevas",
+      "selectNone": "No seleccionar ninguna",
+      "selectedCount": "{{selected}} de {{total}} fotos seleccionadas",
+      "title": "Importar fotos"
+    },
     "importSettings": {
       "cancel": "Cancelar",
       "dateFormat": "Formato de fecha",
-      "dateFormatPlaceholder": "ej., AAAA/MM-DD",
       "deleteAfterImport": "Eliminar originales tras una importación exitosa",
       "deleteWarning": "Los archivos se moverán a la papelera del sistema.",
       "fileNaming": "Nomenclatura de archivos",

@@ -209,6 +209,7 @@
       "copyHere_one": "画像をここにコピー",
       "copyHere_other": "{{count}} 枚の画像をここにコピー",
       "deleteFolder": "フォルダを削除",
+      "importFromFolder": "フォルダまたはカードからインポート…",
       "importImages": "画像をインポート",
       "moveHere_one": "画像をここに移動",
       "moveHere_other": "{{count}} 枚の画像をここに移動",
@@ -1350,10 +1351,22 @@
       "start": "開始",
       "title": "HDRに統合"
     },
+    "importReview": {
+      "alreadyImported": "インポート済み",
+      "checking": "重複を確認中…",
+      "choose": "選択…",
+      "continue": "続行",
+      "destination": "インポート先",
+      "duplicateCount": "インポート先に既存: {{duplicates}}",
+      "selectAll": "すべて選択",
+      "selectNew": "新規のみ選択",
+      "selectNone": "選択解除",
+      "selectedCount": "{{total}} 枚中 {{selected}} 枚を選択",
+      "title": "写真をインポート"
+    },
     "importSettings": {
       "cancel": "キャンセル",
       "dateFormat": "日付形式",
-      "dateFormatPlaceholder": "例: YYYY/MM-DD",
       "deleteAfterImport": "インポート完了後に元のファイルを削除",
       "deleteWarning": "ファイルはシステムのゴミ箱に移動されます。",
       "fileNaming": "ファイル名の命名",

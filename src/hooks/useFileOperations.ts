@@ -288,12 +288,24 @@ export function useFileOperations(
   );
 
   const handleImportClick = useCallback(
-    async (targetPath: string) => {
+    async (targetPath: string, fromFolder = false) => {
       const { supportedTypes, osPlatform } = useSettingsStore.getState();
       const { setUI } = useUIStore.getState();
       const isAndroid = osPlatform === 'android';
 
       try {
+        if (fromFolder) {
+          const folder = await open({ directory: true, title: 'Select folder or card to import from' });
+          if (typeof folder !== 'string') return;
+          const files = await invoke<string[]>(Invokes.ScanImportSource, { folder });
+          if (files.length === 0) {
+            toast.error('No supported images found in the selected folder');
+            return;
+          }
+          setUI({ importSourcePaths: files, importTargetFolder: targetPath, isImportReviewOpen: true });
+          return;
+        }
+
         const nonRaw = supportedTypes?.nonRaw || [];
         const raw = supportedTypes?.raw || [];
 
@@ -366,7 +378,7 @@ export function useFileOperations(
             return;
           }
 
-          setUI({ importSourcePaths: validFiles, importTargetFolder: targetPath, isImportModalOpen: true });
+          setUI({ importSourcePaths: validFiles, importTargetFolder: targetPath, isImportReviewOpen: true });
         }
       } catch (err) {
         console.error('Failed to open file dialog for import:', err);
