@@ -1358,6 +1358,8 @@
       "continue": "続行",
       "destination": "インポート先",
       "duplicateCount": "インポート先に既存: {{duplicates}}",
+      "folderPreview": "フォルダープレビュー",
+      "newFolder": "新規",
       "selectAll": "すべて選択",
       "selectNew": "新規のみ選択",
       "selectNone": "選択解除",

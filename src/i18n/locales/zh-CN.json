@@ -1358,6 +1358,8 @@
       "continue": "继续",
       "destination": "导入到",
       "duplicateCount": "目标中已存在：{{duplicates}}",
+      "folderPreview": "文件夹预览",
+      "newFolder": "新建",
       "selectAll": "全选",
       "selectNew": "选择新照片",
       "selectNone": "全不选",

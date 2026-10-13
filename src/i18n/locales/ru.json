@@ -1416,6 +1416,8 @@
       "continue": "Продолжить",
       "destination": "Импортировать в",
       "duplicateCount": "Уже в папке назначения: {{duplicates}}",
+      "folderPreview": "Предпросмотр папок",
+      "newFolder": "Новая",
       "selectAll": "Выбрать все",
       "selectNew": "Выбрать новые",
       "selectNone": "Снять выбор",

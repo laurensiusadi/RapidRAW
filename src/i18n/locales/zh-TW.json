@@ -1358,6 +1358,8 @@
       "continue": "繼續",
       "destination": "匯入至",
       "duplicateCount": "目的地已存在：{{duplicates}}",
+      "folderPreview": "資料夾預覽",
+      "newFolder": "新增",
       "selectAll": "全選",
       "selectNew": "選擇新照片",
       "selectNone": "全不選",

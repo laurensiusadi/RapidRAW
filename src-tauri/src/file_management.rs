@@ -3837,7 +3837,10 @@ pub async fn import_files(
                             .replace("YYYY", "%Y")
                             .replace("MM", "%m")
                             .replace("DD", "%d");
-                        let subfolder = file_date.format(&date_format_str).to_string();
+                        let subfolder = file_date
+                            .with_timezone(&chrono::Local)
+                            .format(&date_format_str)
+                            .to_string();
                         final_dest_folder.push(subfolder);
                     }
 
@@ -3882,7 +3885,7 @@ pub async fn import_files(
                     return Err(format!("Source file not found: {}", source_path_str));
                 }
 
-                let file_date = exif_processing::get_creation_date_from_path(&source_path);
+                let file_date = import_capture_date(&source_path);
 
                 let mut final_dest_folder = PathBuf::from(&destination_folder);
                 if settings.organize_by_date {
@@ -3891,7 +3894,10 @@ pub async fn import_files(
                         .replace("YYYY", "%Y")
                         .replace("MM", "%m")
                         .replace("DD", "%d");
-                    let subfolder = file_date.format(&date_format_str).to_string();
+                    let subfolder = file_date
+                        .with_timezone(&chrono::Local)
+                        .format(&date_format_str)
+                        .to_string();
                     final_dest_folder.push(subfolder);
                 }
 
@@ -3920,6 +3926,12 @@ pub async fn import_files(
                 }
 
                 fs::copy(&source_path, &dest_file_path).map_err(|e| e.to_string())?;
+                if let Ok(source_meta) = fs::metadata(&source_path) {
+                    let _ = filetime::set_file_mtime(
+                        &dest_file_path,
+                        filetime::FileTime::from_last_modification_time(&source_meta),
+                    );
+                }
                 if source_sidecar.exists()
                     && let Some(dest_str) = dest_file_path.to_str()
                 {
@@ -4061,13 +4073,31 @@ fn list_supported_images(root: &Path, max_depth: usize) -> Vec<(PathBuf, fs::Met
 pub struct ImportCandidate {
     pub path: String,
     pub size: u64,
-    /// Capture time as `YYYY-MM-DDTHH:MM:SS`, the same date `import_files` uses for date folders.
+    /// Local modified time as `YYYY-MM-DDTHH:MM:SS`; cameras write the capture time here.
+    /// `read_import_previews` returns the EXIF capture time that `import_files` uses.
     pub captured: String,
     pub duplicate: bool,
 }
 
-/// Returns metadata for each source file, flagging ones already present anywhere under the destination.
-/// A duplicate has the same size as a destination file plus the same filename or the same EXIF capture date.
+fn modified_secs(meta: &fs::Metadata) -> Option<u64> {
+    Some(
+        meta.modified()
+            .ok()?
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs(),
+    )
+}
+
+fn format_local(date: DateTime<Utc>) -> String {
+    date.with_timezone(&chrono::Local)
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string()
+}
+
+/// Returns metadata for each source file using only filesystem metadata, flagging ones already present
+/// anywhere under the destination. A duplicate matches a destination file on name + size or size + modified time
+/// (copies keep the camera-set modified time).
 // ponytail: only checks the destination tree, not every library root
 #[tauri::command]
 pub async fn get_import_candidates(
@@ -4075,9 +4105,13 @@ pub async fn get_import_candidates(
     destination_folder: String,
 ) -> Result<Vec<ImportCandidate>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let mut existing_by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
+        let mut by_name_size = HashSet::new();
+        let mut by_size_mtime = HashSet::new();
         for (path, meta) in list_supported_images(Path::new(&destination_folder), usize::MAX) {
-            existing_by_size.entry(meta.len()).or_default().push(path);
+            by_name_size.insert((path.file_name().map(|n| n.to_os_string()), meta.len()));
+            if let Some(secs) = modified_secs(&meta) {
+                by_size_mtime.insert((meta.len(), secs));
+            }
         }
 
         let mut candidates: Vec<ImportCandidate> = source_paths
@@ -4086,19 +4120,11 @@ pub async fn get_import_candidates(
                 let path = Path::new(&path_str);
                 let meta = fs::metadata(path).ok()?;
                 let size = meta.len();
-                let exif_date = exif_processing::try_get_exif_creation_date(path);
-                let duplicate = existing_by_size.get(&size).is_some_and(|matches| {
-                    matches.iter().any(|m| m.file_name() == path.file_name())
-                        || exif_date.is_some_and(|date| {
-                            matches.iter().any(|m| {
-                                exif_processing::try_get_exif_creation_date(m) == Some(date)
-                            })
-                        })
-                });
-                let captured = exif_date
-                    .unwrap_or_else(|| exif_processing::get_creation_date_from_path(path))
-                    .format("%Y-%m-%dT%H:%M:%S")
-                    .to_string();
+                let secs = modified_secs(&meta);
+                let duplicate = by_name_size
+                    .contains(&(path.file_name().map(|n| n.to_os_string()), size))
+                    || secs.is_some_and(|s| by_size_mtime.contains(&(size, s)));
+                let captured = format_local(meta.modified().ok()?.into());
                 Some(ImportCandidate {
                     path: path_str,
                     size,
@@ -4107,8 +4133,122 @@ pub async fn get_import_candidates(
                 })
             })
             .collect();
-        candidates.sort_by(|a, b| a.captured.cmp(&b.captured));
+        candidates.sort_by(|a, b| (&a.captured, &a.path).cmp(&(&b.captured, &b.path)));
         candidates
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Reports which folders (relative to `base`) already exist, so the import preview can mark new ones.
+#[tauri::command]
+pub fn check_import_folders(base: String, relative: Vec<String>) -> Vec<bool> {
+    let base = PathBuf::from(base);
+    relative.iter().map(|r| base.join(r).is_dir()).collect()
+}
+
+const RAW_SIBLING_EXTENSIONS: [&str; 6] = ["JPG", "jpg", "JPEG", "jpeg", "HEIC", "heic"];
+
+/// Capture date used for import date folders: the file's own EXIF, else the EXIF of a same-named JPEG/HEIC next to a
+/// raw, else the modified time.
+// ponytail: skips rawler's metadata parse (~300ms per RW2 on an SD card); for raws with no readable EXIF and no JPEG
+// sibling the modified time stands in, which cameras set to the capture time.
+pub fn import_capture_date(path: &Path) -> DateTime<Utc> {
+    if let Some(date) = exif_processing::try_get_exif_creation_date_fast(path) {
+        return date;
+    }
+    if is_raw_file(path)
+        && let Some(date) = RAW_SIBLING_EXTENSIONS
+            .iter()
+            .map(|ext| path.with_extension(ext))
+            .find(|sibling| sibling.is_file())
+            .and_then(|sibling| exif_processing::try_get_exif_creation_date_fast(&sibling))
+    {
+        return date;
+    }
+    fs::metadata(path)
+        .and_then(|m| m.modified())
+        .map(DateTime::<Utc>::from)
+        .unwrap_or_else(|_| Utc::now())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreview {
+    pub path: String,
+    /// Local capture time as `YYYY-MM-DDTHH:MM:SS`, matching the date folder `import_files` creates.
+    pub captured: String,
+    /// The EXIF thumbnail as a `data:` URL, when the file embeds one.
+    pub thumbnail: Option<String>,
+    /// EXIF orientation (1 = upright); the thumbnail is stored unrotated.
+    pub orientation: u32,
+    /// Unrotated width / height of the full image; EXIF thumbnails pad other ratios with bars to 4:3.
+    pub aspect: f32,
+}
+
+/// Reads capture dates and embedded EXIF thumbnails. Only the EXIF block at the start of each file is read.
+// ponytail: RW2/CR3-only files have no EXIF thumbnail here; decode their embedded preview if raw-only cards matter
+#[tauri::command]
+pub async fn read_import_previews(paths: Vec<String>) -> Result<Vec<ImportPreview>, String> {
+    use base64::Engine;
+    tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .into_par_iter()
+            .map(|path_str| {
+                let path = Path::new(&path_str);
+                let exif_obj = fs::File::open(path).ok().and_then(|file| {
+                    exif::Reader::new()
+                        .read_from_container(&mut std::io::BufReader::new(&file))
+                        .ok()
+                });
+                let thumbnail = exif_obj.as_ref().and_then(|e| {
+                    let offset = e
+                        .get_field(exif::Tag::JPEGInterchangeFormat, exif::In::THUMBNAIL)?
+                        .value
+                        .get_uint(0)? as usize;
+                    let len = e
+                        .get_field(exif::Tag::JPEGInterchangeFormatLength, exif::In::THUMBNAIL)?
+                        .value
+                        .get_uint(0)? as usize;
+                    let bytes = e.buf().get(offset..offset + len)?;
+                    Some(format!(
+                        "data:image/jpeg;base64,{}",
+                        base64::engine::general_purpose::STANDARD.encode(bytes)
+                    ))
+                });
+                let date = exif_obj
+                    .as_ref()
+                    .and_then(exif_processing::creation_date_from_exif)
+                    .unwrap_or_else(|| import_capture_date(path));
+                let orientation = exif_obj
+                    .as_ref()
+                    .and_then(|e| e.get_field(exif::Tag::Orientation, exif::In::PRIMARY))
+                    .and_then(|f| f.value.get_uint(0))
+                    .unwrap_or(1);
+                let dimension = |tag| {
+                    exif_obj
+                        .as_ref()?
+                        .get_field(tag, exif::In::PRIMARY)?
+                        .value
+                        .get_uint(0)
+                        .filter(|&v| v > 0)
+                };
+                let aspect = match (
+                    dimension(exif::Tag::PixelXDimension),
+                    dimension(exif::Tag::PixelYDimension),
+                ) {
+                    (Some(w), Some(h)) => w as f32 / h as f32,
+                    _ => 4.0 / 3.0,
+                };
+                ImportPreview {
+                    path: path_str,
+                    captured: format_local(date),
+                    thumbnail,
+                    orientation,
+                    aspect,
+                }
+            })
+            .collect()
     })
     .await
     .map_err(|e| e.to_string())

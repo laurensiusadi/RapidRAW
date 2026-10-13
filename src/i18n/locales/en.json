@@ -1366,6 +1366,8 @@
       "continue": "Continue",
       "destination": "Import To",
       "duplicateCount": "{{duplicates}} already in destination",
+      "folderPreview": "Folder Preview",
+      "newFolder": "New",
       "selectAll": "Select All",
       "selectNew": "Select New",
       "selectNone": "Select None",

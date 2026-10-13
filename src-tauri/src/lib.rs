@@ -2243,6 +2243,8 @@ pub fn run() {
             file_management::import_files,
             file_management::scan_import_source,
             file_management::get_import_candidates,
+            file_management::read_import_previews,
+            file_management::check_import_folders,
             file_management::create_virtual_copy,
             file_management::get_albums,
             file_management::save_albums,

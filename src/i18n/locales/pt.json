@@ -1388,6 +1388,8 @@
       "continue": "Continuar",
       "destination": "Importar para",
       "duplicateCount": "Já no destino: {{duplicates}}",
+      "folderPreview": "Prévia das pastas",
+      "newFolder": "Nova",
       "selectAll": "Selecionar Tudo",
       "selectNew": "Selecionar Novas",
       "selectNone": "Desmarcar Tudo",

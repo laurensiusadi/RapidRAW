@@ -74,6 +74,8 @@ export enum Invokes {
   ImportFiles = 'import_files',
   ScanImportSource = 'scan_import_source',
   GetImportCandidates = 'get_import_candidates',
+  ReadImportPreviews = 'read_import_previews',
+  CheckImportFolders = 'check_import_folders',
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
   IsTetheringSupported = 'is_tethering_supported',
   IsRaw9Available = 'is_raw9_available',

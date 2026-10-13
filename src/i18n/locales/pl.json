@@ -1416,6 +1416,8 @@
       "continue": "Dalej",
       "destination": "Importuj do",
       "duplicateCount": "Już w miejscu docelowym: {{duplicates}}",
+      "folderPreview": "Podgląd folderów",
+      "newFolder": "Nowy",
       "selectAll": "Zaznacz wszystko",
       "selectNew": "Zaznacz nowe",
       "selectNone": "Odznacz wszystko",

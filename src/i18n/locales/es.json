@@ -1387,6 +1387,8 @@
       "continue": "Continuar",
       "destination": "Importar a",
       "duplicateCount": "Ya en el destino: {{duplicates}}",
+      "folderPreview": "Vista previa de carpetas",
+      "newFolder": "Nueva",
       "selectAll": "Seleccionar todo",
       "selectNew": "Seleccionar nuevas",
       "selectNone": "No seleccionar ninguna",

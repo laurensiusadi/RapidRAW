@@ -1358,6 +1358,8 @@
       "continue": "계속",
       "destination": "가져올 위치",
       "duplicateCount": "대상에 이미 있음: {{duplicates}}",
+      "folderPreview": "폴더 미리보기",
+      "newFolder": "새 폴더",
       "selectAll": "모두 선택",
       "selectNew": "새 항목 선택",
       "selectNone": "선택 해제",

@@ -1360,6 +1360,8 @@
       "continue": "Weiter",
       "destination": "Importieren nach",
       "duplicateCount": "Bereits im Ziel: {{duplicates}}",
+      "folderPreview": "Ordnervorschau",
+      "newFolder": "Neu",
       "selectAll": "Alle auswählen",
       "selectNew": "Neue auswählen",
       "selectNone": "Keine auswählen",

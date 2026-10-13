@@ -1360,6 +1360,8 @@
       "continue": "Continuar",
       "destination": "Importar a",
       "duplicateCount": "Ja a la destinació: {{duplicates}}",
+      "folderPreview": "Previsualització de carpetes",
+      "newFolder": "Nova",
       "selectAll": "Seleccionar-ho tot",
       "selectNew": "Seleccionar les noves",
       "selectNone": "No seleccionar-ne cap",

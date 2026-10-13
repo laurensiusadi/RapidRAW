@@ -944,7 +944,8 @@ pub fn get_creation_date_from_path(path: &Path) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
+/// Capture date from the `.rrexif` sidecar or the file's own EXIF block, without the full raw decoder fallback.
+pub fn try_get_exif_creation_date_fast(path: &Path) -> Option<DateTime<Utc>> {
     if let Some(map) = read_rrexif_sidecar(path)
         && let Some(dt_str) = map.get("DateTimeOriginal").or(map.get("CreateDate"))
         && let Some(dt) = parse_creation_datetime(dt_str)
@@ -952,19 +953,26 @@ pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
         return Some(creation_datetime_to_utc(dt));
     }
 
-    if let Ok(file) = std::fs::File::open(path) {
-        let mut bufreader = BufReader::new(&file);
-        let exifreader = exif::Reader::new();
+    let file = std::fs::File::open(path).ok()?;
+    let exif_obj = exif::Reader::new()
+        .read_from_container(&mut BufReader::new(&file))
+        .ok()?;
+    creation_date_from_exif(&exif_obj)
+}
 
-        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
-            for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
-                if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
-                    && let Some(dt) = parse_creation_field(field)
-                {
-                    return Some(dt);
-                }
-            }
-        }
+pub fn creation_date_from_exif(exif_obj: &exif::Exif) -> Option<DateTime<Utc>> {
+    [exif::Tag::DateTimeOriginal, exif::Tag::DateTime]
+        .into_iter()
+        .find_map(|tag| {
+            exif_obj
+                .get_field(tag, exif::In::PRIMARY)
+                .and_then(parse_creation_field)
+        })
+}
+
+pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
+    if let Some(dt) = try_get_exif_creation_date_fast(path) {
+        return Some(dt);
     }
 
     if is_raw_file(path) {
