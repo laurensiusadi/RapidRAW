@@ -3600,7 +3600,7 @@ const ImageCanvas = memo(
                         (['n', 'e', 's', 'w'] as const).map((side) => (
                           <div
                             key={side}
-                            className="ReactCrop__drag-handle"
+                            className="ReactCrop__drag-handle crop-side-handle"
                             style={CROP_SIDE_HANDLE_STYLES[side]}
                             onPointerDown={handleSideResizeDown(side)}
                             onPointerMove={handleSideResizeMove}

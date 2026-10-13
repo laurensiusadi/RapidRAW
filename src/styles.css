@@ -362,6 +362,17 @@
   ) !important;
 }
 
+/* Invisible padding so the mid-edge crop handles are easy to grab without hovering exactly on the square. */
+.ReactCrop .ReactCrop__drag-handle.ord-n::after,
+.ReactCrop .ReactCrop__drag-handle.ord-e::after,
+.ReactCrop .ReactCrop__drag-handle.ord-s::after,
+.ReactCrop .ReactCrop__drag-handle.ord-w::after,
+.ReactCrop .crop-side-handle::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
 @layer utilities {
   .text-shadow-shiny {
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
