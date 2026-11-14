@@ -1,28 +1,45 @@
-import React, { useCallback } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, Rows3 } from 'lucide-react';
+import React, { useCallback, useMemo } from 'react';
+import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, LayoutList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import BasicAdjustments from '../../adjustments/Basic';
-import CurveGraph from '../../adjustments/Curves';
-import ColorPanel from '../../adjustments/Color';
-import DetailsPanel from '../../adjustments/Details';
-import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
-import Waveform from '../editor/Waveform';
+import AdjustmentSection from '../../adjustments/AdjustmentSection';
+import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
-import { CompactSlidersContext } from '../../ui/Slider';
-import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
+import {
+  ActiveTools,
+  Adjustments,
+  ADJUSTMENT_SECTIONS,
+  getActiveTools,
+  getVisibleAdjustmentSections,
+  isToolActive,
+  setToolActive,
+  toggleToolActive,
+} from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Orientation } from '../../../types/ui';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { getOpenImageDefaults } from '../../../utils/developDefaults';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import type { ParseKeys } from 'i18next';
+
+function AdjustmentSectionContent(props: {
+  sectionName: string;
+  activeTools: ActiveTools;
+  onToggleTool(id: string): void;
+  [key: string]: unknown;
+}) {
+  const adjustments = useEditorStore((state) => state.adjustments);
+  return <AdjustmentSection {...props} adjustments={adjustments} />;
+}
 
 export default function Controls() {
   const { t } = useTranslation();
@@ -31,14 +48,14 @@ export default function Controls() {
     useWaveformControls();
   const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
 
-  const { appSettings, theme, handleSettingsChange } = useSettingsStore(
+  const { appSettings, theme } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
-      handleSettingsChange: state.handleSettingsChange,
     })),
   );
-  const compactSliders = !!appSettings?.compactSliders;
+
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   const { collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
@@ -48,29 +65,30 @@ export default function Controls() {
   );
 
   const {
-    adjustments,
+    activeToolsState,
+    sectionVisibility,
     copiedSectionAdjustments,
-    histogram,
     selectedImage,
     isWbPickerActive,
     isWaveformVisible,
-    waveform,
-    activeWaveformChannel,
     waveformHeight,
     setEditor,
   } = useEditorStore(
     useShallow((state) => ({
-      adjustments: state.adjustments,
+      activeToolsState: state.adjustments.activeTools,
+      sectionVisibility: state.adjustments.sectionVisibility,
       copiedSectionAdjustments: state.copiedSectionAdjustments,
-      histogram: state.histogram,
       selectedImage: state.selectedImage,
       isWbPickerActive: state.isWbPickerActive,
       isWaveformVisible: state.isWaveformVisible,
-      waveform: state.waveform,
-      activeWaveformChannel: state.activeWaveformChannel,
       waveformHeight: state.waveformHeight,
       setEditor: state.setEditor,
     })),
+  );
+
+  const activeTools = useMemo(
+    () => getActiveTools({ activeTools: activeToolsState, sectionVisibility }),
+    [activeToolsState, sectionVisibility],
   );
 
   const setCopiedSectionAdjustments = useCallback(
@@ -79,7 +97,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive })),
+    () => setEditor((state) => canvasToolState({ isWbPickerActive: !state.isWbPickerActive })),
     [setEditor],
   );
 
@@ -96,30 +114,37 @@ export default function Controls() {
     [setUI],
   );
 
-  const handleToggleVisibility = (sectionName: string) => {
-    setAdjustments((prev: Adjustments) => {
-      const currentVisibility: SectionVisibility = prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
-      return {
+  const handleToggleVisibility = useCallback(
+    (id: string) => {
+      setAdjustments((prev: Adjustments) => ({
         ...prev,
-        sectionVisibility: {
-          ...currentVisibility,
-          [sectionName]: !currentVisibility[sectionName],
-        },
-      };
-    });
+        activeTools: toggleToolActive(getActiveTools(prev), id),
+      }));
+    },
+    [setAdjustments],
+  );
+
+  const handleResetAdjustments = async () => {
+    const defaults = await getOpenImageDefaults();
+    setAdjustments(
+      (prev: Adjustments) => ({
+        ...prev,
+        ...Object.keys(ADJUSTMENT_SECTIONS)
+          .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+          .reduce((acc: any, key: string) => {
+            acc[key] = defaults[key as keyof Adjustments];
+            return acc;
+          }, {}),
+        activeTools: { ...defaults.activeTools },
+      }),
+      t('contextMenus.editor.resetAdjustments'),
+    );
   };
 
-  const handleResetAdjustments = () => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      ...Object.keys(ADJUSTMENT_SECTIONS)
-        .flatMap((s) => ADJUSTMENT_SECTIONS[s])
-        .reduce((acc: any, key: string) => {
-          acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
-          return acc;
-        }, {}),
-      sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
-    }));
+  const handleAutoAdjustContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, buildAutoAdjustModeOptions(t, handleAutoAdjustments));
   };
 
   const handleToggleSection = (section: string) => {
@@ -147,6 +172,7 @@ export default function Controls() {
     }
 
     const handleCopy = () => {
+      const { adjustments } = useEditorStore.getState();
       const adjustmentsToCopy: any = {};
       for (const key of sectionKeys) {
         if (Object.prototype.hasOwnProperty.call(adjustments, key)) {
@@ -163,30 +189,25 @@ export default function Controls() {
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...copiedSectionAdjustments.values,
-        sectionVisibility: {
-          ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-          [sectionName]: true,
-        },
+        activeTools: setToolActive(getActiveTools(prev), sectionName, true),
       }));
     };
 
-    const handleReset = () => {
+    const handleReset = async () => {
+      const defaults = await getOpenImageDefaults();
       const resetValues: any = {};
       for (const key of sectionKeys) {
-        resetValues[key] = JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS[key as keyof Adjustments]));
+        resetValues[key] = defaults[key as keyof Adjustments];
       }
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...resetValues,
-        sectionVisibility: {
-          ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-          [sectionName]: true,
-        },
+        activeTools: setToolActive(getActiveTools(prev), sectionName, true),
       }));
     };
 
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
-    const translatedSection = t(`editor.adjustments.sections.${sectionName}`);
+    const translatedSection = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
 
     const pasteLabel = copiedSectionAdjustments
       ? t('editor.adjustments.actions.pasteLabel', { section: translatedSection })
@@ -205,6 +226,12 @@ export default function Controls() {
         icon: RotateCcw,
         onClick: handleReset,
       },
+      { type: OPTION_SEPARATOR },
+      {
+        label: t('editor.adjustments.actions.customizePanels'),
+        icon: LayoutList,
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
+      },
     ];
 
     showContextMenu(event.clientX, event.clientY, options);
@@ -218,7 +245,8 @@ export default function Controls() {
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
-            onClick={handleAutoAdjustments}
+            onClick={() => handleAutoAdjustments()}
+            onContextMenu={handleAutoAdjustContextMenu}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />
@@ -232,18 +260,6 @@ export default function Controls() {
             data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
           >
             <ChartArea size={18} />
-          </button>
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              compactSliders ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
-            )}
-            disabled={!appSettings}
-            onClick={() => appSettings && handleSettingsChange({ ...appSettings, compactSliders: !compactSliders })}
-            aria-pressed={compactSliders}
-            data-tooltip={t('editor.adjustments.tooltips.compactSliders')}
-          >
-            <Rows3 size={18} />
           </button>
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -266,18 +282,9 @@ export default function Controls() {
             className="shrink-0 flex flex-col relative border-b border-surface overflow-hidden"
           >
             <div className="grow w-full h-full p-3 pb-2 min-h-0">
-              <Waveform
-                waveformData={waveform || null}
-                histogram={histogram}
-                displayMode={activeWaveformChannel || 'luma'}
+              <ConnectedWaveform
                 setDisplayMode={setActiveWaveformChannel}
-                showClipping={adjustments.showClipping || false}
-                onToggleClipping={() => {
-                  setAdjustments((prev: Adjustments) => ({
-                    ...prev,
-                    showClipping: !prev.showClipping,
-                  }));
-                }}
+                setAdjustments={setAdjustments}
                 theme={theme}
               />
             </div>
@@ -288,42 +295,33 @@ export default function Controls() {
 
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
         {selectedImage ? (
-          Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
-            const SectionComponent: any = {
-              basic: BasicAdjustments,
-              curves: CurveGraph,
-              color: ColorPanel,
-              details: DetailsPanel,
-              effects: EffectsPanel,
-            }[sectionName];
-
-            const title = t(`editor.adjustments.sections.${sectionName}`);
-            const sectionVisibility = adjustments.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
+          visibleSections.map((sectionName: string) => {
+            const title = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
 
             return (
               <div className="shrink-0 group" key={sectionName}>
                 <CollapsibleSection
-                  isContentVisible={sectionVisibility[sectionName as keyof SectionVisibility]}
+                  isContentVisible={isToolActive(activeTools, sectionName)}
                   isOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                   onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                   onToggle={() => handleToggleSection(sectionName)}
                   onToggleVisibility={() => handleToggleVisibility(sectionName)}
                   title={title}
                 >
-                  <CompactSlidersContext.Provider value={compactSliders}>
-                    <SectionComponent
-                      adjustments={adjustments}
-                      setAdjustments={setAdjustments}
-                      histogram={histogram}
-                      theme={theme}
-                      handleLutSelect={handleLutSelect}
-                      onLutHover={setLutPreviewOverride}
-                      appSettings={appSettings}
-                      isWbPickerActive={isWbPickerActive}
-                      toggleWbPicker={toggleWbPicker}
-                      onDragStateChange={onDragStateChange}
-                    />
-                  </CompactSlidersContext.Provider>
+                  <AdjustmentSectionContent
+                    sectionName={sectionName}
+                    activeTools={activeTools}
+                    onToggleTool={handleToggleVisibility}
+                    setAdjustments={setAdjustments}
+                    theme={theme}
+                    handleLutSelect={handleLutSelect}
+                    onLutHover={setLutPreviewOverride}
+                    appSettings={appSettings}
+                    asShotWhiteBalance={selectedImage.asShotWhiteBalance}
+                    isWbPickerActive={isWbPickerActive}
+                    toggleWbPicker={toggleWbPicker}
+                    onDragStateChange={onDragStateChange}
+                  />
                 </CollapsibleSection>
               </div>
             );

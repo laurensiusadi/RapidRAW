@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronRight,
   Cuboid,
-  Search,
   Check,
   Loader,
   SquareDashed,
@@ -25,34 +24,39 @@ import {
   Info,
   Ban,
   Save,
+  ScanLine,
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
+import { Adjustments } from '../../../utils/adjustments';
+import { getDefaultAdjustments, getOpenImageDefaults } from '../../../utils/developDefaults';
 import clsx from 'clsx';
-import { CustomAspectRatio, Orientation } from '../../ui/AppProperties';
+import { CustomAspectRatio } from '../../../types/settings';
+import { Orientation } from '../../../types/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
-import Button from '../../ui/Button';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
-import { calculateAreaPreservingCrop, calculateCenteredCrop } from '../../../utils/cropUtils';
+import {
+  calculateAreaPreservingCrop,
+  calculateCenteredCrop,
+  getOrientedDimensions,
+  ORIGINAL_RATIO,
+  resolveAspectRatio,
+} from '../../../utils/cropUtils';
 import { Crop } from 'react-image-crop';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '../../../store/useUIStore';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { OverlayMode } from '../../../types/editor';
 
 const BASE_RATIO = 1.618;
-const ORIGINAL_RATIO = 0;
 const RATIO_TOLERANCE = 0.01;
-
-export type OverlayMode =
-  'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal' | 'center';
 
 interface CropPreset {
   name: string;
@@ -60,17 +64,19 @@ interface CropPreset {
   tooltip: string;
 }
 
+interface LensCorrectionInfo {
+  maker: string;
+  model: string;
+  distortion: boolean;
+  tca: boolean;
+  vignetting: boolean;
+}
+
 interface OverlayOption {
   id: OverlayMode;
   name: string;
   tooltip: string;
 }
-
-const parseExifNumber = (val: any): number => {
-  if (val === undefined || val === null) return 0;
-  const parsed = parseFloat(val);
-  return isNaN(parsed) ? 0 : parsed;
-};
 
 const greatestCommonDivisor = (a: number, b: number): number => (b === 0 ? a : greatestCommonDivisor(b, a % b));
 
@@ -98,20 +104,22 @@ export default function CropPanel() {
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
+  const isAutoStraightening = useEditorStore((s) => s.isAutoStraightening);
   const isGuidedPerspectiveActive = useEditorStore((s) => s.isGuidedPerspectiveActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
   const setEditor = useEditorStore((s) => s.setEditor);
-  const { setAdjustments, handleRotate } = useEditorActions();
+  const { setAdjustments, handleRotate, handleAutoStraighten } = useEditorActions();
 
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
   const [isRotationActive, setIsRotationActive] = useState(false);
   const [preferPortrait, setPreferPortrait] = useState(false);
   const [isEditingCustom, setIsEditingCustom] = useState(false);
+  const [isCustomMode, setIsCustomMode] = useState(false);
   const [makers, setMakers] = useState<string[]>([]);
   const [lenses, setLenses] = useState<string[]>([]);
   const [myLenses, setMyLenses] = useState<any[]>([]);
-  const [detectionStatus, setDetectionStatus] = useState<'idle' | 'detecting' | 'not_found' | 'success'>('idle');
+  const [lensInfo, setLensInfo] = useState<LensCorrectionInfo | null | undefined>(undefined);
   const [localRotation, setLocalRotation] = useState<number | null>(null);
   const localRotationRef = useRef<number | null>(null);
 
@@ -228,7 +236,13 @@ export default function CropPanel() {
 
   const lastSyncedRatio = useRef<number | null>(null);
 
-  const { aspectRatio, rotation = 0, flipHorizontal = false, flipVertical = false, orientationSteps = 0 } = adjustments;
+  const { rotation = 0, flipHorizontal = false, flipVertical = false, orientationSteps = 0 } = adjustments;
+  const aspectRatio = resolveAspectRatio(adjustments.aspectRatio, selectedImage, orientationSteps);
+  const originalRatio = resolveAspectRatio(ORIGINAL_RATIO, selectedImage, orientationSteps);
+  const originalDimensions =
+    selectedImage?.width && selectedImage?.height
+      ? getOrientedDimensions(selectedImage.width, selectedImage.height, orientationSteps)
+      : null;
 
   useEffect(() => {
     invoke('get_lensfun_makers')
@@ -249,6 +263,23 @@ export default function CropPanel() {
       setLenses([]);
     }
   }, [adjustments.lensMaker]);
+
+  useEffect(() => {
+    if (!selectedImage?.path) {
+      setLensInfo(null);
+      return;
+    }
+    let active = true;
+    invoke<LensCorrectionInfo | null>('get_lens_correction_info', {
+      path: selectedImage.path,
+      selection: { lensCorrectionMode: lensMode, lensMaker: adjustments.lensMaker, lensModel: adjustments.lensModel },
+    })
+      .then((info) => active && setLensInfo(info))
+      .catch(() => active && setLensInfo(null));
+    return () => {
+      active = false;
+    };
+  }, [selectedImage?.path, lensMode, adjustments.lensMaker, adjustments.lensModel]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -280,17 +311,11 @@ export default function CropPanel() {
     };
   }, [setEditor]);
 
-  const getEffectiveOriginalRatio = useCallback(() => {
-    if (!selectedImage?.width || !selectedImage?.height) {
-      return null;
-    }
-    const isSwapped = orientationSteps === 1 || orientationSteps === 3;
-    const W = isSwapped ? selectedImage.height : selectedImage.width;
-    const H = isSwapped ? selectedImage.width : selectedImage.height;
-    return W > 0 && H > 0 ? W / H : null;
-  }, [selectedImage, orientationSteps]);
-
   const activePreset = useMemo(() => {
+    if (adjustments.aspectRatio === ORIGINAL_RATIO) {
+      return PRESETS.find((p: CropPreset) => p.value === ORIGINAL_RATIO);
+    }
+
     if (aspectRatio === null) {
       return PRESETS.find((p: CropPreset) => p.value === null);
     }
@@ -306,26 +331,30 @@ export default function CropPanel() {
       return numericPresetMatch;
     }
 
-    const originalRatio = getEffectiveOriginalRatio();
     if (originalRatio && Math.abs(aspectRatio - originalRatio) < RATIO_TOLERANCE) {
       return PRESETS.find((p: CropPreset) => p.value === ORIGINAL_RATIO);
     }
 
     return null;
-  }, [aspectRatio, getEffectiveOriginalRatio, PRESETS, ALL_PRESETS]);
+  }, [adjustments.aspectRatio, aspectRatio, originalRatio, PRESETS, ALL_PRESETS]);
 
   let orientation = Orientation.Horizontal;
   if (activePreset && activePreset.value && activePreset.value !== 1) {
     let baseRatio: number | null = activePreset.value;
     if (activePreset.value === ORIGINAL_RATIO) {
-      baseRatio = getEffectiveOriginalRatio();
+      baseRatio = originalRatio;
     }
     if (baseRatio && aspectRatio && Math.abs(aspectRatio - baseRatio) > RATIO_TOLERANCE) {
       orientation = Orientation.Vertical;
     }
   }
 
-  const isCustomActive = aspectRatio !== null && !activePreset;
+  const isCustomActive = aspectRatio !== null && (isCustomMode || !activePreset);
+  const selectedPreset = isCustomActive ? null : activePreset;
+
+  useEffect(() => {
+    setIsCustomMode(false);
+  }, [selectedImage?.path]);
 
   useEffect(() => {
     if (aspectRatio && aspectRatio !== 1) {
@@ -357,30 +386,21 @@ export default function CropPanel() {
       }
       let newCrop: Crop | null = null;
       if (selectedImage?.width && selectedImage?.height) {
+        const ratio = resolveAspectRatio(newAspectRatio, selectedImage, orientationSteps);
         newCrop =
           calculateAreaPreservingCrop(
             selectedImage.width,
             selectedImage.height,
             orientationSteps,
-            newAspectRatio,
+            ratio,
             rotation,
             adjustments.crop,
-          ) ??
-          calculateCenteredCrop(selectedImage.width, selectedImage.height, orientationSteps, newAspectRatio, rotation);
+          ) ?? calculateCenteredCrop(selectedImage.width, selectedImage.height, orientationSteps, ratio, rotation);
       }
       setAdjustments((prev: Adjustments) => ({ ...prev, aspectRatio: newAspectRatio, crop: newCrop }));
     },
     [selectedImage, orientationSteps, rotation, adjustments.crop, setAdjustments],
   );
-
-  useEffect(() => {
-    if (activePreset?.value === ORIGINAL_RATIO) {
-      const newOriginalRatio = getEffectiveOriginalRatio();
-      if (newOriginalRatio !== null && aspectRatio && Math.abs(aspectRatio - newOriginalRatio) > RATIO_TOLERANCE) {
-        applyAspectRatio(newOriginalRatio);
-      }
-    }
-  }, [orientationSteps, activePreset, aspectRatio, getEffectiveOriginalRatio, applyAspectRatio]);
 
   const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -412,9 +432,11 @@ export default function CropPanel() {
   const handleCustomInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleApplyCustomRatio();
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setIsEditingCustom(false);
       if (aspectRatio) {
         const h = 100;
@@ -461,13 +483,15 @@ export default function CropPanel() {
   };
 
   const handlePresetClick = (preset: CropPreset) => {
+    setIsCustomMode(false);
+
     if (preset.value === ORIGINAL_RATIO) {
-      applyAspectRatio(getEffectiveOriginalRatio());
+      applyAspectRatio(ORIGINAL_RATIO);
       return;
     }
 
     const targetRatio = preset.value;
-    if (activePreset === preset && targetRatio && targetRatio !== 1) {
+    if (selectedPreset === preset && targetRatio && targetRatio !== 1) {
       const newRatio = 1 / (adjustments.aspectRatio ? adjustments.aspectRatio : 1);
       setPreferPortrait(newRatio < 1);
       applyAspectRatio(newRatio);
@@ -494,49 +518,47 @@ export default function CropPanel() {
     }
   }, [aspectRatio, applyAspectRatio]);
 
-  const handleReset = () => {
-    const originalAspectRatio =
-      selectedImage?.width && selectedImage?.height ? selectedImage.width / selectedImage.height : null;
-
+  const handleReset = async () => {
     setPreferPortrait(false);
     setIsEditingCustom(false);
+    setIsCustomMode(false);
     lastSyncedRatio.current = null;
     updateLocalRotation(null);
 
     setOverlay('thirds');
 
+    const defaults = await getOpenImageDefaults();
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      aspectRatio: originalAspectRatio,
-      crop: INITIAL_ADJUSTMENTS.crop,
-      flipHorizontal: INITIAL_ADJUSTMENTS.flipHorizontal ?? false,
-      flipVertical: INITIAL_ADJUSTMENTS.flipVertical ?? false,
-      orientationSteps: INITIAL_ADJUSTMENTS.orientationSteps ?? 0,
-      rotation: INITIAL_ADJUSTMENTS.rotation ?? 0,
-      transformDistortion: INITIAL_ADJUSTMENTS.transformDistortion ?? 0,
-      transformVertical: INITIAL_ADJUSTMENTS.transformVertical ?? 0,
-      transformHorizontal: INITIAL_ADJUSTMENTS.transformHorizontal ?? 0,
-      transformRotate: INITIAL_ADJUSTMENTS.transformRotate ?? 0,
-      transformAspect: INITIAL_ADJUSTMENTS.transformAspect ?? 0,
-      transformScale: INITIAL_ADJUSTMENTS.transformScale ?? 100,
-      transformXOffset: INITIAL_ADJUSTMENTS.transformXOffset ?? 0,
-      transformYOffset: INITIAL_ADJUSTMENTS.transformYOffset ?? 0,
-      guidedPerspective: INITIAL_ADJUSTMENTS.guidedPerspective,
-      lensMaker: INITIAL_ADJUSTMENTS.lensMaker,
-      lensModel: INITIAL_ADJUSTMENTS.lensModel,
-      lensDistortionAmount: INITIAL_ADJUSTMENTS.lensDistortionAmount,
-      lensVignetteAmount: INITIAL_ADJUSTMENTS.lensVignetteAmount,
-      lensTcaAmount: INITIAL_ADJUSTMENTS.lensTcaAmount,
-      lensDistortionEnabled: INITIAL_ADJUSTMENTS.lensDistortionEnabled,
-      lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
-      lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-      lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
-      lensCorrectionMode: INITIAL_ADJUSTMENTS.lensCorrectionMode,
+      aspectRatio: defaults.aspectRatio,
+      crop: defaults.crop,
+      flipHorizontal: defaults.flipHorizontal ?? false,
+      flipVertical: defaults.flipVertical ?? false,
+      orientationSteps: defaults.orientationSteps ?? 0,
+      rotation: defaults.rotation ?? 0,
+      transformDistortion: defaults.transformDistortion ?? 0,
+      transformVertical: defaults.transformVertical ?? 0,
+      transformHorizontal: defaults.transformHorizontal ?? 0,
+      transformRotate: defaults.transformRotate ?? 0,
+      transformAspect: defaults.transformAspect ?? 0,
+      transformScale: defaults.transformScale ?? 100,
+      transformXOffset: defaults.transformXOffset ?? 0,
+      transformYOffset: defaults.transformYOffset ?? 0,
+      guidedPerspective: defaults.guidedPerspective,
+      lensMaker: defaults.lensMaker,
+      lensModel: defaults.lensModel,
+      lensDistortionAmount: defaults.lensDistortionAmount,
+      lensVignetteAmount: defaults.lensVignetteAmount,
+      lensTcaAmount: defaults.lensTcaAmount,
+      lensDistortionEnabled: defaults.lensDistortionEnabled,
+      lensTcaEnabled: defaults.lensTcaEnabled,
+      lensVignetteEnabled: defaults.lensVignetteEnabled,
+      lensCorrectionMode: defaults.lensCorrectionMode,
     }));
   };
 
-  const isPresetActive = (preset: CropPreset) => preset === activePreset;
-  const isOrientationToggleDisabled = !aspectRatio || aspectRatio === 1 || activePreset?.value === ORIGINAL_RATIO;
+  const isPresetActive = (preset: CropPreset) => preset === selectedPreset;
+  const isOrientationToggleDisabled = !aspectRatio || aspectRatio === 1 || selectedPreset?.value === ORIGINAL_RATIO;
 
   const fineRotation = useMemo(() => {
     return rotation || 0;
@@ -544,8 +566,8 @@ export default function CropPanel() {
 
   const displayRotation = localRotation !== null ? localRotation : fineRotation;
 
-  const handleFineRotationChange = (e: any) => {
-    const newFineRotation = parseFloat(e.target.value);
+  const handleFineRotationChange = (e: { target: { value: number | string } }) => {
+    const newFineRotation = parseFloat(String(e.target.value));
     if (isRotationActive) {
       updateLocalRotation(newFineRotation);
     } else {
@@ -599,125 +621,37 @@ export default function CropPanel() {
     [setEditor, updateLocalRotation, setAdjustments],
   );
 
-  const fetchDistortionParams = useCallback(
-    async (maker: string, model: string) => {
-      try {
-        const distParams: any = await invoke('get_lens_distortion_params', {
-          maker,
-          model,
-          focalLength: parseExifNumber(selectedImage?.exif?.FocalLength),
-          aperture: parseExifNumber(selectedImage?.exif?.FNumber),
-          distance: parseExifNumber(selectedImage?.exif?.SubjectDistance),
-        });
-        return distParams;
-      } catch (error) {
-        console.error('Failed to fetch lens distortion params', error);
-        return null;
-      }
-    },
-    [selectedImage?.exif],
-  );
-
-  const handleAutoDetectLens = useCallback(async () => {
-    const exifMaker = selectedImage?.exif?.Make;
-    const exifModel = selectedImage?.exif?.LensModel;
-    const exifCameraModel = selectedImage?.exif?.Model;
-
-    if (!exifMaker || (!exifModel && !exifCameraModel)) {
-      setDetectionStatus('not_found');
-      return;
-    }
-
-    setDetectionStatus('detecting');
-    try {
-      const result: [string, string] | null = await invoke('autodetect_lens', {
-        maker: exifMaker,
-        model: exifModel ?? '',
-        cameraModel: exifCameraModel ?? '',
-      });
-
-      if (result) {
-        const [detectedMaker, detectedModel] = result;
-        const distParams = await fetchDistortionParams(detectedMaker, detectedModel);
-
-        setAdjustments((prev) => ({
-          ...prev,
-          lensMaker: detectedMaker,
-          lensModel: detectedModel,
-          lensDistortionParams: distParams,
-          lensCorrectionMode: 'auto',
-        }));
-
-        setDetectionStatus('success');
-        setTimeout(() => setDetectionStatus('idle'), 2000);
-      } else {
-        setDetectionStatus('not_found');
-      }
-    } catch {
-      setDetectionStatus('not_found');
-    }
-  }, [selectedImage?.exif, fetchDistortionParams, setAdjustments]);
-
   const handleMakerChange = useCallback(
     (maker: string) => {
-      setAdjustments((prev) => ({
-        ...prev,
-        lensMaker: maker,
-        lensModel: null,
-        lensDistortionParams: null,
-      }));
+      setAdjustments((prev) => ({ ...prev, lensMaker: maker, lensModel: null }));
       setLenses([]);
     },
     [setAdjustments],
   );
 
   const handleModelChange = useCallback(
-    async (model: string) => {
-      if (!adjustments.lensMaker) return;
-      const distParams = await fetchDistortionParams(adjustments.lensMaker, model);
-      setAdjustments((prev) => ({
-        ...prev,
-        lensModel: model,
-        lensDistortionParams: distParams,
-      }));
-    },
-    [adjustments.lensMaker, fetchDistortionParams, setAdjustments],
+    (model: string) => setAdjustments((prev) => ({ ...prev, lensModel: model })),
+    [setAdjustments],
   );
 
   const handleMyLensSelect = useCallback(
-    async (val: string) => {
+    (val: string) => {
       if (!val || val === 'none') return;
-      const index = parseInt(val);
-      const selected = myLenses[index];
+      const selected = myLenses[parseInt(val)];
       if (!selected) return;
 
       invoke('get_lensfun_lenses_for_maker', { maker: selected.maker })
         .then((l: any) => setLenses(l))
         .catch(console.error);
 
-      const distParams = await fetchDistortionParams(selected.maker, selected.model);
-
-      setAdjustments((prev) => ({
-        ...prev,
-        lensMaker: selected.maker,
-        lensModel: selected.model,
-        lensDistortionParams: distParams,
-      }));
+      setAdjustments((prev) => ({ ...prev, lensMaker: selected.maker, lensModel: selected.model }));
     },
-    [myLenses, fetchDistortionParams, setAdjustments],
+    [myLenses, setAdjustments],
   );
 
-  const hasDistortion =
-    Math.abs(adjustments.lensDistortionParams?.k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k3 || 0) > 1e-6;
-  const hasTca =
-    Math.abs((adjustments.lensDistortionParams?.tca_vr || 1) - 1) > 1e-5 ||
-    Math.abs((adjustments.lensDistortionParams?.tca_vb || 1) - 1) > 1e-5;
-  const hasVignetting =
-    Math.abs(adjustments.lensDistortionParams?.vig_k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k3 || 0) > 1e-6;
+  const hasDistortion = !!lensInfo?.distortion;
+  const hasTca = !!lensInfo?.tca;
+  const hasVignetting = !!lensInfo?.vignetting;
 
   const myLensOptions = useMemo(() => {
     if (myLenses.length === 0) {
@@ -750,13 +684,8 @@ export default function CropPanel() {
   }, [lensMode]);
 
   const handleModeChange = useCallback(
-    (mode: 'auto' | 'manual') => {
-      setAdjustments((prev) => ({ ...prev, lensCorrectionMode: mode }));
-      if (mode === 'auto') {
-        handleAutoDetectLens();
-      }
-    },
-    [handleAutoDetectLens, setAdjustments],
+    (mode: 'auto' | 'manual') => setAdjustments((prev) => ({ ...prev, lensCorrectionMode: mode })),
+    [setAdjustments],
   );
 
   const handleTransformContextMenu = (e: React.MouseEvent) => {
@@ -765,17 +694,18 @@ export default function CropPanel() {
 
     const handleResetTransform = () => {
       setEditor({ isGuidedPerspectiveActive: false });
+      const defaults = getDefaultAdjustments();
       setAdjustments((prev: Adjustments) => ({
         ...prev,
-        transformDistortion: INITIAL_ADJUSTMENTS.transformDistortion ?? 0,
-        transformVertical: INITIAL_ADJUSTMENTS.transformVertical ?? 0,
-        transformHorizontal: INITIAL_ADJUSTMENTS.transformHorizontal ?? 0,
-        transformRotate: INITIAL_ADJUSTMENTS.transformRotate ?? 0,
-        transformAspect: INITIAL_ADJUSTMENTS.transformAspect ?? 0,
-        transformScale: INITIAL_ADJUSTMENTS.transformScale ?? 100,
-        transformXOffset: INITIAL_ADJUSTMENTS.transformXOffset ?? 0,
-        transformYOffset: INITIAL_ADJUSTMENTS.transformYOffset ?? 0,
-        guidedPerspective: INITIAL_ADJUSTMENTS.guidedPerspective,
+        transformDistortion: defaults.transformDistortion ?? 0,
+        transformVertical: defaults.transformVertical ?? 0,
+        transformHorizontal: defaults.transformHorizontal ?? 0,
+        transformRotate: defaults.transformRotate ?? 0,
+        transformAspect: defaults.transformAspect ?? 0,
+        transformScale: defaults.transformScale ?? 100,
+        transformXOffset: defaults.transformXOffset ?? 0,
+        transformYOffset: defaults.transformYOffset ?? 0,
+        guidedPerspective: defaults.guidedPerspective,
       }));
     };
 
@@ -794,21 +724,20 @@ export default function CropPanel() {
     e.preventDefault();
     e.stopPropagation();
 
-    const handleResetLens = () => {
-      setDetectionStatus('idle');
+    const handleResetLens = async () => {
       setLenses([]);
+      const defaults = await getOpenImageDefaults();
       setAdjustments((prev: Adjustments) => ({
         ...prev,
-        lensMaker: INITIAL_ADJUSTMENTS.lensMaker,
-        lensModel: INITIAL_ADJUSTMENTS.lensModel,
-        lensDistortionAmount: INITIAL_ADJUSTMENTS.lensDistortionAmount,
-        lensVignetteAmount: INITIAL_ADJUSTMENTS.lensVignetteAmount,
-        lensTcaAmount: INITIAL_ADJUSTMENTS.lensTcaAmount,
-        lensDistortionEnabled: INITIAL_ADJUSTMENTS.lensDistortionEnabled,
-        lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
-        lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-        lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
-        lensCorrectionMode: INITIAL_ADJUSTMENTS.lensCorrectionMode,
+        lensMaker: defaults.lensMaker,
+        lensModel: defaults.lensModel,
+        lensDistortionAmount: defaults.lensDistortionAmount,
+        lensVignetteAmount: defaults.lensVignetteAmount,
+        lensTcaAmount: defaults.lensTcaAmount,
+        lensDistortionEnabled: defaults.lensDistortionEnabled,
+        lensTcaEnabled: defaults.lensTcaEnabled,
+        lensVignetteEnabled: defaults.lensVignetteEnabled,
+        lensCorrectionMode: defaults.lensCorrectionMode,
       }));
     };
 
@@ -875,7 +804,11 @@ export default function CropPanel() {
                       )}
                       key={savedIndex < 0 ? preset.name : `saved-${savedIndex}`}
                       onClick={() => handlePresetClick(preset)}
-                      data-tooltip={preset.tooltip}
+                      data-tooltip={
+                        preset.value === ORIGINAL_RATIO && originalDimensions
+                          ? `${preset.tooltip} (${formatRatioLabel(originalDimensions.width, originalDimensions.height)})`
+                          : preset.tooltip
+                      }
                       whileTap={{ scale: 0.98 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                     >
@@ -905,11 +838,11 @@ export default function CropPanel() {
                     isCustomActive ? 'bg-accent' : 'bg-surface hover:bg-card-active',
                   )}
                   onClick={() => {
-                    const imageRatio = getEffectiveOriginalRatio();
                     let newAspectRatio = BASE_RATIO;
-                    if (preferPortrait || (imageRatio && imageRatio < 1)) {
+                    if (preferPortrait || (originalRatio && originalRatio < 1)) {
                       newAspectRatio = 1 / BASE_RATIO;
                     }
+                    setIsCustomMode(true);
                     applyAspectRatio(newAspectRatio);
                   }}
                   data-tooltip={t('editor.crop.presets.custom.tooltip')}
@@ -992,6 +925,14 @@ export default function CropPanel() {
                         <Ruler size={14} />
                       </button>
                       <button
+                        onClick={handleAutoStraighten}
+                        className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary disabled:cursor-wait"
+                        data-tooltip={t('editor.crop.tooltips.autoStraighten')}
+                        disabled={isAutoStraightening}
+                      >
+                        {isAutoStraightening ? <Loader size={14} className="animate-spin" /> : <ScanLine size={14} />}
+                      </button>
+                      <button
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"
                         onClick={resetFineRotation}
                         data-tooltip={t('editor.crop.tooltips.resetFineRotation')}
@@ -1009,6 +950,7 @@ export default function CropPanel() {
                   suffix="°"
                   onChange={handleFineRotationChange}
                   onDragStateChange={handleDragStateChange}
+                  speedEditId="rotation"
                 />
               </div>
             </div>
@@ -1153,7 +1095,7 @@ export default function CropPanel() {
                                         : 'text-text-secondary',
                                     )}
                                   >
-                                    {adjustments.guidedPerspective.lines.length} / 4
+                                    {`${adjustments.guidedPerspective.lines.length} / 4`}
                                   </span>
                                 </div>
                                 <div className="flex flex-col gap-1 mt-1">
@@ -1173,9 +1115,14 @@ export default function CropPanel() {
                                         <Text
                                           color={TextColors.primary}
                                           weight={TextWeights.medium}
-                                          className="truncate select-none text-xs capitalize"
+                                          className="truncate select-none text-xs"
                                         >
-                                          {line.type} Guide #{idx + 1}
+                                          {t(
+                                            line.type === 'horizontal'
+                                              ? 'editor.guided.horizontalLine'
+                                              : 'editor.guided.verticalLine',
+                                            { index: idx + 1 },
+                                          )}
                                         </Text>
                                       </div>
                                       <button
@@ -1210,6 +1157,7 @@ export default function CropPanel() {
                           </Text>
                           <div className="space-y-3">
                             <Slider
+                              resetKey="transformDistortion"
                               label={t('modals.transform.amount')}
                               step={1}
                               value={adjustments.transformDistortion || 0}
@@ -1232,6 +1180,7 @@ export default function CropPanel() {
                           </Text>
                           <div className="space-y-3">
                             <Slider
+                              resetKey="transformVertical"
                               label={t('modals.transform.vertical')}
                               step={1}
                               value={adjustments.transformVertical || 0}
@@ -1246,6 +1195,7 @@ export default function CropPanel() {
                               }
                             />
                             <Slider
+                              resetKey="transformHorizontal"
                               label={t('modals.transform.horizontal')}
                               step={1}
                               value={adjustments.transformHorizontal || 0}
@@ -1268,6 +1218,7 @@ export default function CropPanel() {
                           </Text>
                           <div className="space-y-3">
                             <Slider
+                              resetKey="transformRotate"
                               label={t('modals.transform.rotate')}
                               step={0.1}
                               value={adjustments.transformRotate || 0}
@@ -1282,6 +1233,7 @@ export default function CropPanel() {
                               }
                             />
                             <Slider
+                              resetKey="transformAspect"
                               label={t('modals.transform.aspect')}
                               step={1}
                               value={adjustments.transformAspect || 0}
@@ -1296,6 +1248,7 @@ export default function CropPanel() {
                               }
                             />
                             <Slider
+                              resetKey="transformScale"
                               label={t('modals.transform.scale')}
                               step={1}
                               value={adjustments.transformScale || 100}
@@ -1318,6 +1271,7 @@ export default function CropPanel() {
                           </Text>
                           <div className="space-y-3">
                             <Slider
+                              resetKey="transformXOffset"
                               label={t('modals.transform.xAxis')}
                               step={1}
                               value={adjustments.transformXOffset || 0}
@@ -1332,6 +1286,7 @@ export default function CropPanel() {
                               }
                             />
                             <Slider
+                              resetKey="transformYOffset"
                               label={t('modals.transform.yAxis')}
                               step={1}
                               value={adjustments.transformYOffset || 0}
@@ -1418,26 +1373,22 @@ export default function CropPanel() {
                           <div
                             className={clsx(
                               'w-full flex items-center justify-center gap-2 p-3 text-sm rounded-md border transition-colors',
-                              detectionStatus === 'not_found'
+                              lensInfo === null
                                 ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                : adjustments.lensMaker
+                                : lensInfo
                                   ? 'bg-green-500/10 text-green-400 border-green-500/20'
                                   : 'bg-bg-primary border-surface text-text-secondary',
                             )}
                           >
-                            {detectionStatus === 'detecting' ? (
+                            {lensInfo === undefined ? (
                               <>
                                 <Loader size={16} className="animate-spin" /> {t('modals.lensCorrection.detectingExif')}
                               </>
-                            ) : detectionStatus === 'not_found' ? (
+                            ) : lensInfo === null ? (
                               t('modals.lensCorrection.lensProfileNotFound')
-                            ) : adjustments.lensMaker && adjustments.lensModel ? (
-                              <>
-                                <Check size={16} /> {adjustments.lensMaker} - {adjustments.lensModel}
-                              </>
                             ) : (
                               <>
-                                <Search size={16} /> {t('modals.lensCorrection.waitingAutoDetect')}
+                                <Check size={16} /> {lensInfo.maker} - {lensInfo.model}
                               </>
                             )}
                           </div>
@@ -1492,6 +1443,7 @@ export default function CropPanel() {
                                   className="px-2 overflow-hidden"
                                 >
                                   <Slider
+                                    resetKey="lensDistortionAmount"
                                     label={t('modals.lensCorrection.amount')}
                                     step={1}
                                     value={adjustments.lensDistortionAmount ?? 100}
@@ -1535,6 +1487,7 @@ export default function CropPanel() {
                                   className="px-2 overflow-hidden"
                                 >
                                   <Slider
+                                    resetKey="lensTcaAmount"
                                     label={t('modals.lensCorrection.amount')}
                                     step={1}
                                     value={adjustments.lensTcaAmount ?? 100}
@@ -1578,6 +1531,7 @@ export default function CropPanel() {
                                   className="px-2 overflow-hidden"
                                 >
                                   <Slider
+                                    resetKey="lensVignetteAmount"
                                     label={t('modals.lensCorrection.amount')}
                                     step={1}
                                     value={adjustments.lensVignetteAmount ?? 100}

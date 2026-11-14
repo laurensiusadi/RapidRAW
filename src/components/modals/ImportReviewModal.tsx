@@ -5,7 +5,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { Check, ChevronDown, Folder } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '../../store/useUIStore';
-import { Invokes } from '../ui/AppProperties';
+import { Invokes } from '../../types/invokes';
 import Dropdown from '../ui/Dropdown';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';

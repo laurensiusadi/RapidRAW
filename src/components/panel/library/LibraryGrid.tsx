@@ -6,14 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Row } from './LibraryItems';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import {
-  LibraryViewMode,
-  SortDirection,
-  LibraryDisplayMode,
-  ThumbnailAspectRatio,
-  ExifOverlay,
-  ImageFile,
-} from '../../ui/AppProperties';
+import { LibraryViewMode, LibraryDisplayMode, ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
+import { SortDirection, ImageFile } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { useProcessStore } from '../../../store/useProcessStore';
@@ -261,18 +255,6 @@ export default function LibraryGrid(props: any) {
   const isClickSelectionRef = useRef(false);
   const clickTimerRef = useRef<any>(null);
 
-  const handleImageClick = useCallback(
-    (path: string, e: any) => {
-      isClickSelectionRef.current = true;
-      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = setTimeout(() => {
-        isClickSelectionRef.current = false;
-      }, 300);
-      onImageClick?.(path, e);
-    },
-    [onImageClick],
-  );
-
   const handleImageDoubleClick = useCallback(
     (path: string) => {
       isClickSelectionRef.current = true;
@@ -401,10 +383,20 @@ export default function LibraryGrid(props: any) {
     [onRequestThumbnails],
   );
 
+  useEffect(
+    () => () => {
+      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+      requestQueueRef.current.clear();
+    },
+    [currentFolderPath],
+  );
+
   const handleToggleRecursiveFolder = useCallback((path: string) => {
     setCollapsedRecursiveFolders((prev) => {
       const next = new Set(prev);
-      next.has(path) ? next.delete(path) : next.add(path);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
       return next;
     });
   }, []);
@@ -508,6 +500,49 @@ export default function LibraryGrid(props: any) {
     thumbnailAspectRatio,
     ratioMapVersion,
   ]);
+
+  const visibleImagePaths = useMemo(
+    () =>
+      gridData
+        ? gridData.rows.flatMap((row) =>
+            row.type === 'images' ? row.images.map((image: ImageFile) => image.path) : [],
+          )
+        : [],
+    [gridData],
+  );
+
+  useEffect(() => {
+    if (!gridData) {
+      setLibrary({ libraryGridRows: [] });
+      return;
+    }
+    const navRows = gridData.rows
+      .filter((row) => row.type === 'images')
+      .map((row) => {
+        let x = 0;
+        return row.images.map((image: ImageFile, i: number) => {
+          const width = row.justifiedWidths ? row.justifiedWidths[i] : gridData.itemWidth;
+          const center = x + width / 2;
+          x += width + gridData.ITEM_GAP;
+          return { path: image.path, center };
+        });
+      });
+    setLibrary({ libraryGridRows: navRows });
+  }, [gridData, setLibrary]);
+
+  useEffect(() => () => setLibrary({ libraryGridRows: [] }), [setLibrary]);
+
+  const handleImageClick = useCallback(
+    (path: string, e: any) => {
+      isClickSelectionRef.current = true;
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = setTimeout(() => {
+        isClickSelectionRef.current = false;
+      }, 300);
+      onImageClick?.(path, e, visibleImagePaths);
+    },
+    [onImageClick, visibleImagePaths],
+  );
 
   useEffect(() => {
     if (!listHandle?.element || !gridData) return;
@@ -631,6 +666,7 @@ export default function LibraryGrid(props: any) {
       onToggleRecursiveFolder: handleToggleRecursiveFolder,
       groupBadgeInfo,
       onAspectRatioLoaded: handleAspectRatioLoaded,
+      selectionModeActive: props.selectionModeActive,
     };
   }, [
     gridData,
@@ -639,6 +675,7 @@ export default function LibraryGrid(props: any) {
     onContextMenu,
     handleImageClick,
     handleImageDoubleClick,
+    props.selectionModeActive,
     thumbnailAspectRatio,
     handleImageLoad,
     imageRatings,
@@ -654,8 +691,8 @@ export default function LibraryGrid(props: any) {
     return (
       <div
         ref={libraryContainerRef}
-        className="flex-1 w-full h-full"
-        onClick={props.onClearSelection}
+        className="flex-1 w-full min-h-0 overflow-hidden"
+        onClick={props.selectionModeActive ? undefined : props.onClearSelection}
         onContextMenu={props.onEmptyAreaContextMenu}
       />
     );
@@ -678,11 +715,11 @@ export default function LibraryGrid(props: any) {
   return (
     <div
       ref={libraryContainerRef}
-      className="flex-1 w-full h-full"
-      onClick={props.onClearSelection}
+      className="flex-1 w-full min-h-0 overflow-hidden"
+      onClick={props.selectionModeActive ? undefined : props.onClearSelection}
       onContextMenu={props.onEmptyAreaContextMenu}
     >
-      <div className="flex flex-col w-full h-full">
+      <div className="flex flex-col w-full h-full min-h-0">
         {gridData.isListView && (
           <ListHeader
             widths={listColumnWidths}

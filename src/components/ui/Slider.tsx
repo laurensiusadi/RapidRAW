@@ -1,14 +1,13 @@
-import React, { createContext, useState, useEffect, useRef, useCallback, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GLOBAL_KEYS } from './AppProperties';
+import { GLOBAL_KEYS } from '../../types/ui';
+import { useEditorStore } from '../../store/useEditorStore';
+import { SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
+import { SpeedEditTarget } from '../../types/editor';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
+import { useSliderResetResolver } from '../../context/SliderResetContext';
 
-// Sliders inside a provider set to true render label, track and value on one row.
-export const CompactSlidersContext = createContext(false);
-
-// Left indent that lines content up with compact slider tracks (w-24 label + gap-2), or '' outside compact mode.
-export const useCompactTrackIndent = () => (useContext(CompactSlidersContext) ? 'pl-26' : '');
-
-type SliderChangeEvent =
+export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
   | {
       target: {
@@ -16,15 +15,35 @@ type SliderChangeEvent =
       };
     };
 
+export interface SliderMarker {
+  color: string;
+  value: number;
+}
+
+export interface SliderScale {
+  fromPosition(position: number): number;
+  toPosition(value: number): number;
+}
+
+const LINEAR_SCALE: SliderScale = {
+  fromPosition: (position) => position,
+  toPosition: (value) => value,
+};
+
 interface SliderProps {
+  animateValueChanges?: boolean;
   defaultValue?: number;
   disabled?: boolean;
   label: React.ReactNode;
+  markers?: Array<SliderMarker>;
   max: number;
   min: number;
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
+  resetKey?: string;
+  scale?: SliderScale;
+  speedEditId?: string;
   step: number;
   value: number;
   trackClassName?: string;
@@ -33,30 +52,38 @@ interface SliderProps {
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 150;
-const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
-const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
+const getFraction = (value: number, min: number, max: number) => (max !== min ? (value - min) / (max - min) : 0);
+
+const speedEditTargets = new WeakMap<Element, RefObject<SpeedEditTarget | null>>();
+
+export const getSpeedEditTarget = (element: Element) => speedEditTargets.get(element) ?? null;
 
 const Slider = ({
+  animateValueChanges = true,
   defaultValue = 0,
   disabled = false,
   label,
+  markers,
   max,
   min,
   onChange,
   onDragStateChange = () => {},
   onPointerUp,
+  resetKey,
+  scale = LINEAR_SCALE,
+  speedEditId,
   step = 1,
   value,
   trackClassName,
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
+  const resolveReset = useSliderResetResolver();
+  const resetValue = (resolveReset && resetKey !== undefined ? resolveReset(resetKey) : undefined) ?? defaultValue;
   const { t } = useTranslation();
-  const compact = useContext(CompactSlidersContext);
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -73,11 +100,16 @@ const Slider = ({
     startX: number;
     startY: number;
     latestX: number;
-    startValue: number;
+    startPosition: number;
   } | null>(null);
   const suppressTouchChangeRef = useRef(false);
   const isWheelActivelyChangingRef = useRef(false);
   const wheelTimeoutRef = useRef<number | undefined>(undefined);
+  const dragFrameRef = useRef<number | undefined>(undefined);
+  const pendingDragValueRef = useRef<number | null>(null);
+  const lastEmittedValueRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const hasReportedDragStateRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -87,13 +119,17 @@ const Slider = ({
     };
   }, []);
 
-  const fillPercentage = max !== min ? ((displayValue - min) / (max - min)) * 100 : 0;
+  const minPosition = scale.toPosition(min);
+  const maxPosition = scale.toPosition(max);
+  const getPositionFraction = (val: number) => getFraction(scale.toPosition(val), minPosition, maxPosition);
+
+  const fillPercentage = getPositionFraction(displayValue) * 100;
   const originPercentage = useMemo(() => {
     if (fillOrigin === 'min') {
       return 0;
     }
-    return max !== min ? ((defaultValue - min) / (max - min)) * 100 : 0;
-  }, [fillOrigin, defaultValue, min, max]);
+    return getFraction(scale.toPosition(defaultValue), minPosition, maxPosition) * 100;
+  }, [fillOrigin, defaultValue, scale, minPosition, maxPosition]);
 
   const stepStr = String(step);
   const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
@@ -107,20 +143,73 @@ const Slider = ({
     [min, max, step, decimalPlaces],
   );
 
+  const numericValue = isNaN(Number(value)) ? 0 : Number(value);
+  const formatValue = (val: number) => (decimalPlaces > 0 && val === 0 ? '0' : val.toFixed(decimalPlaces));
+
   const onChangeRef = useRef(onChange);
   const snapToStepRef = useRef(snapToStep);
-  const rangeRef = useRef({ min, max });
+  const rangeRef = useRef({ min: minPosition, max: maxPosition });
+  const scaleRef = useRef(scale);
 
   onChangeRef.current = onChange;
   snapToStepRef.current = snapToStep;
-  rangeRef.current = { min, max };
+  rangeRef.current = { min: minPosition, max: maxPosition };
+  scaleRef.current = scale;
 
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
+  isDraggingRef.current = isDragging;
+
+  const speedEditLabel = SPEED_EDIT_ADJUSTMENTS.find((adjustment) => adjustment.id === speedEditId)?.label;
+  const speedEditTargetRef = useRef<SpeedEditTarget | null>(null);
+  speedEditTargetRef.current = disabled
+    ? null
+    : {
+        label: speedEditLabel ? t(speedEditLabel) : typeof label === 'string' ? label : null,
+        value: numericValue,
+        defaultValue: resetValue,
+        step,
+        minPosition,
+        maxPosition,
+        format: (val) => `${formatValue(val)}${suffix}`,
+        toPosition: scale.toPosition,
+        toValue: (position) => snapToStep(scale.fromPosition(position)),
+        onChange: (val) => onChangeRef.current({ target: { value: val } }),
+        onDragStateChange: (state) => {
+          onDragStateChangeRef.current(state);
+          if (!state) onPointerUp?.();
+        },
+      };
+
+  const claimSpeedEdit = () => useEditorStore.getState().setEditor({ speedEditTarget: speedEditTargetRef });
 
   useEffect(() => {
+    if (containerRef.current) speedEditTargets.set(containerRef.current, speedEditTargetRef);
+    return () => {
+      const { speedEditTarget, setEditor } = useEditorStore.getState();
+      if (speedEditTarget === speedEditTargetRef) setEditor({ speedEditTarget: null });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasReportedDragStateRef.current && !isDragging) return;
+    hasReportedDragStateRef.current = true;
     onDragStateChangeRef.current(isDragging);
   }, [isDragging]);
+
+  useEffect(() => {
+    return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      if (isDraggingRef.current) {
+        onDragStateChangeRef.current(false);
+      }
+    };
+  }, []);
+
+  const wheelStateRef = useRef({ disabled, value, min, max, step, decimalPlaces });
+  wheelStateRef.current = { disabled, value, min, max, step, decimalPlaces };
 
   useEffect(() => {
     if (!disabled) return;
@@ -150,11 +239,13 @@ const Slider = ({
     if (!sliderElement) return;
 
     const handleWheel = (event: WheelEvent) => {
+      const { disabled, value, min, max, step, decimalPlaces } = wheelStateRef.current;
       if (disabled || !event.shiftKey) {
         return;
       }
 
       event.preventDefault();
+      claimSpeedEdit();
       const direction = -Math.sign(event.deltaY || event.deltaX);
       const newValue = value + direction * step;
       const roundedNewValue = parseFloat(newValue.toFixed(decimalPlaces));
@@ -178,7 +269,7 @@ const Slider = ({
             value: clampedValue,
           },
         };
-        onChange(syntheticEvent);
+        onChangeRef.current(syntheticEvent);
       }
     };
 
@@ -187,7 +278,7 @@ const Slider = ({
     return () => {
       sliderElement.removeEventListener('wheel', handleWheel);
     };
-  }, [disabled, value, min, max, step, onChange, decimalPlaces]);
+  }, []);
 
   // Handle Dragging
   useEffect(() => {
@@ -196,6 +287,18 @@ const Slider = ({
     const inputEl = rangeInputRef.current;
     if (!inputEl) return;
     const sliderWidth = inputEl.getBoundingClientRect().width || 1;
+
+    const flushDragValue = () => {
+      dragFrameRef.current = undefined;
+      const nextValue = pendingDragValueRef.current;
+      pendingDragValueRef.current = null;
+      if (nextValue === null || nextValue === lastEmittedValueRef.current) return;
+
+      lastEmittedValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+      setInputValue(String(nextValue));
+      onChangeRef.current({ target: { value: nextValue } });
+    };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       let clientX: number;
@@ -227,14 +330,17 @@ const Slider = ({
         lastPointerXRef.current = clientX;
       }
 
-      const snappedValue = snapToStepRef.current(accumulatedValueRef.current);
-
-      setDisplayValue(snappedValue);
-      setInputValue(String(snappedValue));
-      onChangeRef.current({ target: { value: snappedValue } });
+      pendingDragValueRef.current = snapToStepRef.current(scaleRef.current.fromPosition(accumulatedValueRef.current));
+      if (dragFrameRef.current === undefined) {
+        dragFrameRef.current = requestAnimationFrame(flushDragValue);
+      }
     };
 
     const handlePointerUp = () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      flushDragValue();
       lastUpTime.current = Date.now();
       pendingTouchRef.current = null;
       suppressTouchChangeRef.current = false;
@@ -251,6 +357,11 @@ const Slider = ({
     window.addEventListener('touchcancel', handlePointerUp);
 
     return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = undefined;
+      }
+      pendingDragValueRef.current = null;
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchmove', handlePointerMove);
@@ -267,7 +378,7 @@ const Slider = ({
       return;
     }
 
-    if (isWheelActivelyChangingRef.current) {
+    if (isWheelActivelyChangingRef.current || !animateValueChanges) {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -305,7 +416,7 @@ const Slider = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [value, isDragging]);
+  }, [value, isDragging, animateValueChanges]);
 
   useEffect(() => {
     if (!isEditing || isDragging) {
@@ -323,10 +434,10 @@ const Slider = ({
   const handleReset = () => {
     if (disabled) return;
 
-    setInputValue(String(defaultValue));
+    setInputValue(String(resetValue));
     const syntheticEvent = {
       target: {
-        value: defaultValue,
+        value: resetValue,
       },
     };
     onChange(syntheticEvent);
@@ -339,10 +450,11 @@ const Slider = ({
     }
 
     if (!isDragging) {
-      const numVal = Number(e.target.value);
+      const numVal =
+        scale === LINEAR_SCALE ? Number(e.target.value) : snapToStep(scale.fromPosition(Number(e.target.value)));
       setDisplayValue(numVal);
       setInputValue(String(numVal));
-      onChange(e);
+      onChange(scale === LINEAR_SCALE ? e : { target: { value: numVal } });
     }
   };
 
@@ -357,11 +469,12 @@ const Slider = ({
 
     const rect = e.currentTarget.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const rawValue = min + fraction * (max - min);
-    const snappedValue = snapToStep(rawValue);
+    const rawPosition = minPosition + fraction * (maxPosition - minPosition);
+    const snappedValue = snapToStep(scale.fromPosition(rawPosition));
 
-    accumulatedValueRef.current = rawValue;
+    accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = e.clientX;
+    lastEmittedValueRef.current = snappedValue;
 
     setIsDragging(true);
     setDisplayValue(snappedValue);
@@ -381,8 +494,7 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const fraction = max !== min ? (displayValue - min) / (max - min) : 0;
-    const thumbX = rect.left + Math.max(0, Math.min(1, fraction)) * rect.width;
+    const thumbX = rect.left + Math.max(0, Math.min(1, getPositionFraction(displayValue))) * rect.width;
 
     if (Math.abs(touch.clientX - thumbX) > TOUCH_THUMB_HIT_RADIUS_PX) {
       pendingTouchRef.current = null;
@@ -393,7 +505,7 @@ const Slider = ({
       startX: touch.clientX,
       startY: touch.clientY,
       latestX: touch.clientX,
-      startValue: displayValue,
+      startPosition: scale.toPosition(displayValue),
     };
   };
 
@@ -423,11 +535,12 @@ const Slider = ({
 
     const rect = inputEl.getBoundingClientRect();
     const multiplier = hasFineAdjustmentModifier(e) ? FINE_ADJUSTMENT_MULTIPLIER : 1;
-    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min) * multiplier;
-    const snappedValue = snapToStep(rawValue);
+    const rawPosition = pendingTouch.startPosition + (deltaX / rect.width) * (maxPosition - minPosition) * multiplier;
+    const snappedValue = snapToStep(scale.fromPosition(rawPosition));
 
-    accumulatedValueRef.current = rawValue;
+    accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = touch.clientX;
+    lastEmittedValueRef.current = snappedValue;
     pendingTouchRef.current = null;
 
     if (e.cancelable) {
@@ -498,9 +611,11 @@ const Slider = ({
     if (disabled) return;
 
     if (e.key === 'Enter') {
+      e.stopPropagation();
       handleInputCommit();
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setInputValue(String(value));
       setIsEditing(false);
       e.currentTarget.blur();
@@ -532,82 +647,75 @@ const Slider = ({
     }
   };
 
-  const numericValue = isNaN(Number(value)) ? 0 : Number(value);
-  // Compact icon-labelled sliders mirror the icon: value hugs the track from the right side.
-  const valueAlign = compact && typeof label !== 'string' ? 'text-left' : 'text-right';
-
-  const labelEl = (
+  return (
     <div
-      className={`grid ${
-        compact
-          ? `${typeof label === 'string' ? 'w-24' : 'w-12'} shrink-0 grid-cols-[minmax(0,1fr)] justify-items-end text-right`
-          : ''
-      } ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
-      onClick={typeof label === 'string' && !disabled ? handleReset : undefined}
-      onDoubleClick={typeof label === 'string' && !disabled ? handleReset : undefined}
-      onMouseEnter={typeof label === 'string' && !disabled ? () => setIsLabelHovered(true) : undefined}
-      onMouseLeave={typeof label === 'string' && !disabled ? () => setIsLabelHovered(false) : undefined}
+      className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      ref={containerRef}
+      data-speed-edit-id={speedEditId}
+      onPointerDownCapture={disabled ? undefined : claimSpeedEdit}
     >
-      <span
-        aria-hidden={isLabelHovered && typeof label === 'string'}
-        className={`col-start-1 row-start-1 max-w-full truncate text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
-          isLabelHovered && typeof label === 'string' ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
-        {label}
-      </span>
-      {typeof label === 'string' && (
-        <span
-          aria-hidden={!isLabelHovered}
-          className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
-            isLabelHovered ? 'opacity-100' : 'opacity-0'
+      <div className="flex justify-between items-center mb-1">
+        <div
+          className={`grid ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
+          onClick={typeof label === 'string' && !disabled ? handleReset : undefined}
+          onDoubleClick={typeof label === 'string' && !disabled ? handleReset : undefined}
+          onMouseEnter={typeof label === 'string' && !disabled ? () => setIsLabelHovered(true) : undefined}
+          onMouseLeave={typeof label === 'string' && !disabled ? () => setIsLabelHovered(false) : undefined}
+        >
+          <span
+            aria-hidden={isLabelHovered && typeof label === 'string'}
+            className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
+              isLabelHovered && typeof label === 'string' ? 'opacity-0' : 'opacity-100'
+            }`}
+          >
+            {label}
+          </span>
+          {typeof label === 'string' && (
+            <span
+              aria-hidden={!isLabelHovered}
+              className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
+                isLabelHovered ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              {t('ui.slider.reset')}
+            </span>
+          )}
+        </div>
+        <div className="w-14 text-right shrink-0">
+          {isEditing ? (
+            <input
+              className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+              disabled={disabled}
+              max={max}
+              min={min}
+              onBlur={handleInputCommit}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
+              ref={inputRef}
+              step={step}
+              type="text"
+              value={inputValue}
+            />
+          ) : (
+            <span
+              className={`text-sm text-text-primary w-full text-right select-none whitespace-nowrap ${disabled ? '' : 'cursor-text'}`}
+              onClick={disabled ? undefined : handleValueClick}
+              onDoubleClick={disabled ? undefined : handleReset}
+              data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
+            >
+              {formatValue(numericValue)}
+              {suffix && <span className="text-[10px] align-top inline ml-0.5">{suffix}</span>}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="relative w-full h-5">
+        <div
+          className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
+            trackClassName || 'bg-card-active'
           }`}
-        >
-          {t('ui.slider.reset')}
-        </span>
-      )}
-    </div>
-  );
-
-  const valueEl = (
-    <div className={`w-12 shrink-0 ${valueAlign}`}>
-      {isEditing ? (
-        <input
-          className={`w-full text-sm ${valueAlign} tabular-nums bg-card-active border border-border-color rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-accent text-text-primary`}
-          disabled={disabled}
-          max={max}
-          min={min}
-          onBlur={handleInputCommit}
-          onChange={handleInputChange}
-          onKeyDown={handleInputKeyDown}
-          ref={inputRef}
-          step={step}
-          type="text"
-          value={inputValue}
         />
-      ) : (
-        <span
-          className={`text-sm text-text-primary w-full ${valueAlign} tabular-nums select-none ${disabled ? '' : 'cursor-text'}`}
-          onClick={disabled ? undefined : handleValueClick}
-          onDoubleClick={disabled ? undefined : handleReset}
-          data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
-        >
-          {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
-          {suffix && <span className="text-[10px] align-top inline-block mt-0.5 ml-0.5">{suffix}</span>}
-        </span>
-      )}
-    </div>
-  );
-
-  const trackEl = (
-    <div className={`relative h-5 ${compact ? 'flex-1 min-w-0' : 'w-full'}`}>
-      <div
-        className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
-          trackClassName || 'bg-card-active'
-        }`}
-      />
-      {/* ponytail: any non-bg-* track class is a gradient, where the fill overlay reads as a seam. */}
-      {(!trackClassName || trackClassName.startsWith('bg-')) && (
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full pointer-events-none bg-accent/25"
           style={{
@@ -615,51 +723,39 @@ const Slider = ({
             width: `${Math.abs(fillPercentage - originPercentage)}%`,
           }}
         />
-      )}
-      <input
-        ref={rangeInputRef}
-        className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
-          isDragging ? 'slider-thumb-active' : ''
-        } ${disabled ? 'cursor-not-allowed' : ''}`}
-        style={{ margin: 0, touchAction: isDragging ? 'none' : 'pan-y' }}
-        max={String(max)}
-        min={String(min)}
-        onChange={handleChange}
-        onDoubleClick={handleReset}
-        onKeyDown={handleRangeKeyDown}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        step={String(step)}
-        type="range"
-        value={displayValue}
-      />
-    </div>
-  );
-
-  const containerClass = `group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
-
-  if (compact) {
-    return (
-      <div className={`mb-1 flex items-center gap-2 ${containerClass}`} ref={containerRef}>
-        {labelEl}
-        {trackEl}
-        {valueEl}
+        {markers?.map(({ color, value: markerValue }, index) => (
+          <div
+            className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none opacity-70"
+            key={index}
+            style={{
+              backgroundColor: color,
+              left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, getPositionFraction(markerValue)))})`,
+            }}
+          />
+        ))}
+        <input
+          ref={rangeInputRef}
+          className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
+            isDragging ? 'slider-thumb-active' : ''
+          } ${disabled ? 'cursor-not-allowed' : ''}`}
+          style={{ margin: 0, touchAction: isDragging ? 'none' : 'pan-y' }}
+          max={String(maxPosition)}
+          min={String(minPosition)}
+          onChange={handleChange}
+          onDoubleClick={handleReset}
+          onKeyDown={handleRangeKeyDown}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          step={scale === LINEAR_SCALE ? String(step) : 'any'}
+          type="range"
+          value={scale.toPosition(displayValue)}
+        />
       </div>
-    );
-  }
-
-  return (
-    <div className={`mb-2 ${containerClass}`} ref={containerRef}>
-      <div className="flex justify-between items-center mb-1">
-        {labelEl}
-        {valueEl}
-      </div>
-      {trackEl}
     </div>
   );
 };
 
-export default Slider;
+export default memo(Slider);

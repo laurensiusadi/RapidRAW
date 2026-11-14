@@ -12,8 +12,11 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useProcessStore } from '../../store/useProcessStore';
+import { getImageFlag } from '../../utils/imageFlags';
 
-import { ImageFile, Orientation, Panel, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { ImageFile } from '../../types/library';
+import { Orientation } from '../../types/ui';
+import { ThumbnailAspectRatio } from '../../types/settings';
 
 interface EditorViewProps {
   transformWrapperRef: RefObject<any>;
@@ -83,10 +86,11 @@ export default function EditorView({
     })),
   );
 
-  const { multiSelectedPaths, imageRatings, isViewLoading } = useLibraryStore(
+  const { multiSelectedPaths, imageRatings, flag, isViewLoading } = useLibraryStore(
     useShallow((state) => ({
       multiSelectedPaths: state.multiSelectedPaths,
       imageRatings: state.imageRatings,
+      flag: getImageFlag(state.imageList, selectedImage?.path),
       isViewLoading: state.isViewLoading,
     })),
   );
@@ -132,6 +136,7 @@ export default function EditorView({
       onRequestThumbnails={requestThumbnails}
       onZoomChange={handleZoomChange}
       rating={imageRatings[selectedImage?.path || ''] || 0}
+      flag={flag}
       selectedImage={selectedImage ?? undefined}
       showFilmstrip={layoutMode !== 'compact'}
       layoutMode={layoutMode}
