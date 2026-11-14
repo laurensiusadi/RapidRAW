@@ -896,6 +896,7 @@
         "focalLength": "Фокусна відстань",
         "iso": "ISO",
         "lens": "Об'єктив",
+        "model": "Модель",
         "shutterSpeed": "Витримка",
         "title": "Відомості про камеру"
       },
@@ -1006,6 +1007,7 @@
         "adjust": "Коригування",
         "crop": "Кадрування",
         "export": "Експорт",
+        "filmstrip": "Стрічка кадрів",
         "info": "Інформація",
         "inpaint": "Домальовування",
         "masks": "Маски",
@@ -1547,10 +1549,7 @@
       "originalRatio": "Оригінальне співвідношення"
     },
     "thumbnailSize": {
-      "large": "Великий",
-      "list": "Список",
-      "medium": "Середній",
-      "small": "Малий"
+      "list": "Список"
     },
     "tooltips": {
       "communityPresets": "Пресети спільноти",
@@ -2492,13 +2491,11 @@
     "bottomBar": {
       "imagesSelected": "Вибрано {{current}} з {{total}} зображень",
       "tooltips": {
-        "collapseFilmstrip": "Згорнути стрічку кадрів",
         "collapseLeft": "Згорнути ліву панель",
         "collapseRight": "Згорнути праву панель",
         "copyPasteSettings": "Копіювати й вставити налаштування",
         "copySettings": "Копіювати налаштування",
         "customZoom": "Клацніть, щоб ввести власний масштаб у відсотках",
-        "expandFilmstrip": "Розгорнути стрічку кадрів",
         "expandLeft": "Розгорнути ліву панель",
         "expandRight": "Розгорнути праву панель",
         "export": "Експорт",

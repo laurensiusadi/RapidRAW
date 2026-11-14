@@ -871,6 +871,7 @@
         "focalLength": "Distància focal",
         "iso": "ISO",
         "lens": "Objectiu",
+        "model": "Model",
         "shutterSpeed": "Velocitat d'obturació",
         "title": "Detalls de la càmera"
       },
@@ -981,6 +982,7 @@
         "adjust": "Ajustar",
         "crop": "Retallar",
         "export": "Exportar",
+        "filmstrip": "Tira d'imatges",
         "info": "Informació",
         "inpaint": "Inpainting",
         "masks": "Màscares",
@@ -1514,10 +1516,7 @@
       "originalRatio": "Proporció original"
     },
     "thumbnailSize": {
-      "large": "Gran",
-      "list": "Llista",
-      "medium": "Mitjana",
-      "small": "Petita"
+      "list": "Llista"
     },
     "tooltips": {
       "communityPresets": "Ajustos preestablerts de la comunitat",
@@ -2448,13 +2447,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} de {{total}} imatges seleccionades",
       "tooltips": {
-        "collapseFilmstrip": "Contraure Tira d'imatges",
         "collapseLeft": "Plegar el panell esquerre",
         "collapseRight": "Plegar el panell dret",
         "copyPasteSettings": "Copiar i enganxar ajustaments",
         "copySettings": "Copiar ajustaments",
         "customZoom": "Feu clic per introduir un percentatge de zoom personalitzat",
-        "expandFilmstrip": "Expandir Tira d'imatges",
         "expandLeft": "Desplegar el panell esquerre",
         "expandRight": "Desplegar el panell dret",
         "export": "Exportar",

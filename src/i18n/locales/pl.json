@@ -896,6 +896,7 @@
         "focalLength": "Ogniskowa",
         "iso": "ISO",
         "lens": "Obiektyw",
+        "model": "Model",
         "shutterSpeed": "Czas otwarcia migawki",
         "title": "Szczegóły aparatu"
       },
@@ -1006,6 +1007,7 @@
         "adjust": "Dopasuj",
         "crop": "Kadruj",
         "export": "Eksportuj",
+        "filmstrip": "Pasek z klatkami",
         "info": "Informacje",
         "inpaint": "Inpaint",
         "masks": "Maski",
@@ -1547,10 +1549,7 @@
       "originalRatio": "Oryginalne proporcje"
     },
     "thumbnailSize": {
-      "large": "Duży",
-      "list": "Lista",
-      "medium": "Średni",
-      "small": "Mały"
+      "list": "Lista"
     },
     "tooltips": {
       "communityPresets": "Presety społeczności",
@@ -2490,13 +2489,11 @@
     "bottomBar": {
       "imagesSelected": "Zaznaczono {{current}} z {{total}} obrazów",
       "tooltips": {
-        "collapseFilmstrip": "Zwiń pasek z klatkami",
         "collapseLeft": "Zwiń lewy panel",
         "collapseRight": "Zwiń prawy panel",
         "copyPasteSettings": "Kopiuj i Wklej Ustawienia",
         "copySettings": "Kopiuj Ustawienia",
         "customZoom": "Kliknij, aby wpisać niestandardowy procent przybliżenia",
-        "expandFilmstrip": "Rozwiń pasek z klatkami",
         "expandLeft": "Rozwiń lewy panel",
         "expandRight": "Rozwiń prawy panel",
         "export": "Eksport",

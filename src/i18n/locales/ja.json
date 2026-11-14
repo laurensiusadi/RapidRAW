@@ -843,6 +843,7 @@
         "focalLength": "焦点距離",
         "iso": "ISO感度",
         "lens": "レンズ",
+        "model": "モデル",
         "shutterSpeed": "シャッタースピード",
         "title": "カメラ情報"
       },
@@ -953,6 +954,7 @@
         "adjust": "補正",
         "crop": "切り抜き",
         "export": "書き出し",
+        "filmstrip": "フィルムストリップ",
         "info": "情報",
         "inpaint": "インペイント",
         "masks": "マスク",
@@ -1475,10 +1477,7 @@
       "originalRatio": "オリジナル比率"
     },
     "thumbnailSize": {
-      "large": "大",
-      "list": "リスト",
-      "medium": "中",
-      "small": "小"
+      "list": "リスト"
     },
     "tooltips": {
       "communityPresets": "コミュニティプリセット",
@@ -2400,13 +2399,11 @@
     "bottomBar": {
       "imagesSelected": "{{total}}枚中 {{current}}枚の画像を選択中",
       "tooltips": {
-        "collapseFilmstrip": "フィルムストリップをたたむ",
         "collapseLeft": "左パネルを折りたたむ",
         "collapseRight": "右パネルを折りたたむ",
         "copyPasteSettings": "補正設定のコピーと貼り付け",
         "copySettings": "補正設定をコピー",
         "customZoom": "クリックしてカスタムのズーム倍率を入力",
-        "expandFilmstrip": "フィルムストリップを展開",
         "expandLeft": "左パネルを展開",
         "expandRight": "右パネルを展開",
         "export": "書き出し",

@@ -31,11 +31,12 @@ import { useEditorStore, WgpuPhase } from '../../../store/useEditorStore';
 import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import CropRotateArea from './overlays/CropRotateArea';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
 import { countPatchesOfType, createSubMask, getStrokeCenter } from '../../../utils/maskUtils';
-import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
+import { calculateStraightenAngle, getCropViewLayout, resolveAspectRatio } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
   getWhiteBalanceMode,
@@ -110,22 +111,6 @@ interface ImageCanvasProps {
   overlayRoot: HTMLElement | null;
   subscribeViewTransform(listener: (state: TransformState) => void): () => void;
 }
-
-// Corner rotation: hovering just outside a crop corner or left/right side midpoint rotates the image around the crop center.
-const CORNER_ROTATE_REACH_PX = 40;
-const CORNER_ROTATE_HANDLE_CLEARANCE_PX = 6;
-// Curved double arrow bulging toward the top-left, turned to face each zone: TL, TR, R, BR, BL, L.
-const CORNER_ROTATE_ARROW = "<path d='M6 18A12 12 0 0 1 18 6'/><path d='M15 3l3 3-3 3'/><path d='M3 15l3 3 3-3'/>";
-const CORNER_ROTATE_CURSORS = [0, 90, 135, 180, 270, 315].map(
-  (deg) =>
-    `url("data:image/svg+xml,${encodeURIComponent(
-      "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'>" +
-        `<g transform='rotate(${deg} 12 12)'>` +
-        `<g stroke='black' stroke-width='4'>${CORNER_ROTATE_ARROW}</g>` +
-        `<g stroke='white' stroke-width='2'>${CORNER_ROTATE_ARROW}</g>` +
-        '</g></svg>',
-    )}") 12 12, grab`,
-);
 
 // react-image-crop hides side handles for a fixed aspect, so those are drawn and handled here.
 type CropSide = 'n' | 'e' | 's' | 'w';
@@ -1669,13 +1654,6 @@ const ImageCanvas = memo(
     const contentLayerRef = useRef<HTMLDivElement | null>(null);
     const cropWrapperRef = useRef<HTMLDivElement | null>(null);
     const cropSizerRef = useRef<HTMLDivElement | null>(null);
-    const cornerRotateRef = useRef<{
-      center: Coord;
-      startAngle: number;
-      startRotation: number;
-      rotation: number;
-    } | null>(null);
-    const [cornerRotateHover, setCornerRotateHover] = useState<number | null>(null);
     const sideResizeRef = useRef<{
       side: CropSide;
       startX: number;
@@ -2110,12 +2088,13 @@ const ImageCanvas = memo(
         return null;
       }
 
-      const scale = Math.min(viewportWidth / uncroppedEffectiveWidth, viewportHeight / uncroppedEffectiveHeight);
-
-      const renderWidth = uncroppedEffectiveWidth * scale;
-      const renderHeight = uncroppedEffectiveHeight * scale;
-
-      return { width: renderWidth, height: renderHeight };
+      const { width, height } = getCropViewLayout(
+        viewportWidth,
+        viewportHeight,
+        uncroppedEffectiveWidth,
+        uncroppedEffectiveHeight,
+      );
+      return { width, height };
     }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
 
     const cropRect = useMemo<RectBounds | null>(() => {
@@ -3563,12 +3542,24 @@ const ImageCanvas = memo(
       }
     }, [baseIsReady, interactivePatch]);
 
-    const cropImageTransforms = useMemo(() => {
-      const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
-      return `rotate(${rotation}deg)`;
-    }, [adjustments.rotation, liveRotation]);
+    const effectiveRotation = liveRotation ?? adjustments.rotation ?? 0;
 
-    const canCornerRotate = isCropping && isCropViewVisible && !isStraightenActive && !isGuidedPerspectiveActive;
+    const cropImageTransforms = useMemo(() => `rotate(${effectiveRotation}deg)`, [effectiveRotation]);
+
+    const handleRotateHandleChange = useCallback(
+      (rotation: number) => setEditor({ isRotationActive: true, liveRotation: rotation }),
+      [setEditor],
+    );
+
+    const handleRotateHandleEnd = useCallback(
+      (rotation: number | null) => {
+        setEditor({ isRotationActive: false, liveRotation: null });
+        if (rotation !== null) {
+          setAdjustments((prev: Adjustments) => ({ ...prev, rotation }));
+        }
+      },
+      [setAdjustments, setEditor],
+    );
 
     // Crop box in client pixels, so hit-testing works at any zoom level.
     const getCropClientBox = () => {
@@ -3579,66 +3570,6 @@ const ImageCanvas = memo(
       const left = area.left + crop.x * sx;
       const top = area.top + crop.y * sy;
       return { left, top, right: left + crop.width * sx, bottom: top + crop.height * sy };
-    };
-
-    // Index (TL, TR, R, BR, BL, L) of the crop corner or side midpoint whose rotate zone contains the point, or null.
-    const getCornerRotateZone = (x: number, y: number): number | null => {
-      const box = getCropClientBox();
-      if (!box) return null;
-      const c = CORNER_ROTATE_HANDLE_CLEARANCE_PX;
-      if (!(x < box.left - c || x > box.right + c || y < box.top - c || y > box.bottom + c)) return null;
-      const midY = (box.top + box.bottom) / 2;
-      const distances = [
-        Math.hypot(x - box.left, y - box.top),
-        Math.hypot(x - box.right, y - box.top),
-        Math.hypot(x - box.right, y - midY),
-        Math.hypot(x - box.right, y - box.bottom),
-        Math.hypot(x - box.left, y - box.bottom),
-        Math.hypot(x - box.left, y - midY),
-      ];
-      const nearest = distances.indexOf(Math.min(...distances));
-      return distances[nearest] <= CORNER_ROTATE_REACH_PX ? nearest : null;
-    };
-
-    const angleFrom = (center: Coord, x: number, y: number) => (Math.atan2(y - center.y, x - center.x) * 180) / Math.PI;
-
-    const handleCornerRotateDown = (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!canCornerRotate || e.button !== 0 || getCornerRotateZone(e.clientX, e.clientY) === null) return;
-      const box = getCropClientBox();
-      if (!box) return;
-      e.stopPropagation();
-      e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      const center = { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
-      const startRotation = adjustments.rotation || 0;
-      cornerRotateRef.current = {
-        center,
-        startAngle: angleFrom(center, e.clientX, e.clientY),
-        startRotation,
-        rotation: startRotation,
-      };
-      setEditor({ isRotationActive: true, liveRotation: startRotation });
-    };
-
-    const handleCornerRotateMove = (e: React.PointerEvent<HTMLDivElement>) => {
-      const drag = cornerRotateRef.current;
-      if (!drag) {
-        const hoverCorner = canCornerRotate ? getCornerRotateZone(e.clientX, e.clientY) : null;
-        if (hoverCorner !== cornerRotateHover) setCornerRotateHover(hoverCorner);
-        return;
-      }
-      const delta = ((angleFrom(drag.center, e.clientX, e.clientY) - drag.startAngle + 540) % 360) - 180;
-      drag.rotation = Math.round(Math.min(45, Math.max(-45, drag.startRotation + delta)) * 10) / 10;
-      setEditor({ liveRotation: drag.rotation });
-    };
-
-    const handleCornerRotateUp = (e: React.PointerEvent<HTMLDivElement>) => {
-      const drag = cornerRotateRef.current;
-      if (!drag) return;
-      cornerRotateRef.current = null;
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      setEditor({ isRotationActive: false, liveRotation: null });
-      setAdjustments((prev: Adjustments) => ({ ...prev, rotation: drag.rotation }));
     };
 
     const handleSideResizeDown = (side: CropSide) => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -3702,19 +3633,6 @@ const ImageCanvas = memo(
       e.currentTarget.releasePointerCapture(e.pointerId);
       if (crop?.unit === '%') handleCropComplete(crop, crop as PercentCrop);
     };
-
-    useEffect(() => {
-      if (!canCornerRotate) {
-        setCornerRotateHover(null);
-        return;
-      }
-      const onMove = (e: PointerEvent) => {
-        if (cornerRotateRef.current) return;
-        setCornerRotateHover(getCornerRotateZone(e.clientX, e.clientY));
-      };
-      window.addEventListener('pointermove', onMove);
-      return () => window.removeEventListener('pointermove', onMove);
-    });
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -4272,83 +4190,83 @@ const ImageCanvas = memo(
                   className="absolute inset-0 transition-opacity duration-200"
                   style={{ opacity: isCropViewVisible ? 1 : 0, pointerEvents: 'none' }}
                 >
-                  {cornerRotateHover !== null && (
-                    <div
-                      className="absolute inset-0"
-                      style={{ zIndex: 20, pointerEvents: 'auto', cursor: CORNER_ROTATE_CURSORS[cornerRotateHover] }}
-                      onPointerDown={handleCornerRotateDown}
-                      onPointerMove={handleCornerRotateMove}
-                      onPointerUp={handleCornerRotateUp}
-                      onPointerCancel={handleCornerRotateUp}
-                    />
-                  )}
-                  <div
-                    ref={cropWrapperRef}
-                    className="absolute"
-                    style={{ pointerEvents: isCropViewVisible ? 'auto' : 'none' }}
-                    onPointerDownCapture={(e) => {
-                      if (e.button !== 0) {
-                        e.stopPropagation();
-                      }
-                    }}
-                    onMouseDownCapture={(e) => {
-                      if (e.button !== 0) {
-                        e.stopPropagation();
-                      }
-                    }}
+                  <CropRotateArea
+                    enabled={isCropViewVisible && !isStraightenActive && !isGuidedPerspectiveActive}
+                    rotation={effectiveRotation}
+                    onRotate={handleRotateHandleChange}
+                    onRotateEnd={handleRotateHandleEnd}
                   >
-                    <ReactCrop
-                      aspect={
-                        resolveAspectRatio(adjustments.aspectRatio, selectedImage, adjustments.orientationSteps || 0) ??
-                        undefined
-                      }
-                      crop={crop ?? undefined}
-                      onChange={setCrop}
-                      onComplete={handleCropComplete}
-                      ruleOfThirds={false}
-                      style={{ display: 'block' }}
-                      renderSelectionAddon={() => {
-                        const { width, height } = getCropDimensions();
-                        if (width <= 0 || height <= 0) {
-                          return null;
+                    <div
+                      ref={cropWrapperRef}
+                      className="absolute"
+                      style={{ pointerEvents: isCropViewVisible ? 'auto' : 'none' }}
+                      onPointerDownCapture={(e) => {
+                        if (e.button !== 0) {
+                          e.stopPropagation();
                         }
-                        const showDenseGrid = isRotationActive && !isStraightenActive && !isGuidedPerspectiveActive;
-                        const currentOverlayMode =
-                          isRotationActive || isStraightenActive || isGuidedPerspectiveActive
-                            ? 'none'
-                            : overlayMode || 'none';
-                        return (
-                          <>
-                            <CompositionOverlays
-                              width={width}
-                              height={height}
-                              mode={currentOverlayMode}
-                              rotation={overlayRotation || 0}
-                              denseVisible={showDenseGrid}
-                            />
-                            {resolveAspectRatio(
-                              adjustments.aspectRatio,
-                              selectedImage,
-                              adjustments.orientationSteps || 0,
-                            ) &&
-                              (['n', 'e', 's', 'w'] as const).map((side) => (
-                                <div
-                                  key={side}
-                                  className="ReactCrop__drag-handle crop-side-handle"
-                                  style={CROP_SIDE_HANDLE_STYLES[side]}
-                                  onPointerDown={handleSideResizeDown(side)}
-                                  onPointerMove={handleSideResizeMove}
-                                  onPointerUp={handleSideResizeUp}
-                                  onPointerCancel={handleSideResizeUp}
-                                />
-                              ))}
-                          </>
-                        );
+                      }}
+                      onMouseDownCapture={(e) => {
+                        if (e.button !== 0) {
+                          e.stopPropagation();
+                        }
                       }}
                     >
-                      <div ref={cropSizerRef} />
-                    </ReactCrop>
-                  </div>
+                      <ReactCrop
+                        aspect={
+                          resolveAspectRatio(
+                            adjustments.aspectRatio,
+                            selectedImage,
+                            adjustments.orientationSteps || 0,
+                          ) ?? undefined
+                        }
+                        crop={crop ?? undefined}
+                        onChange={setCrop}
+                        onComplete={handleCropComplete}
+                        ruleOfThirds={false}
+                        style={{ display: 'block' }}
+                        renderSelectionAddon={() => {
+                          const { width, height } = getCropDimensions();
+                          if (width <= 0 || height <= 0) {
+                            return null;
+                          }
+                          const showDenseGrid = isRotationActive && !isStraightenActive && !isGuidedPerspectiveActive;
+                          const currentOverlayMode =
+                            isRotationActive || isStraightenActive || isGuidedPerspectiveActive
+                              ? 'none'
+                              : overlayMode || 'none';
+                          return (
+                            <>
+                              <CompositionOverlays
+                                width={width}
+                                height={height}
+                                mode={currentOverlayMode}
+                                rotation={overlayRotation || 0}
+                                denseVisible={showDenseGrid}
+                              />
+                              {resolveAspectRatio(
+                                adjustments.aspectRatio,
+                                selectedImage,
+                                adjustments.orientationSteps || 0,
+                              ) &&
+                                (['n', 'e', 's', 'w'] as const).map((side) => (
+                                  <div
+                                    key={side}
+                                    className="ReactCrop__drag-handle crop-side-handle"
+                                    style={CROP_SIDE_HANDLE_STYLES[side]}
+                                    onPointerDown={handleSideResizeDown(side)}
+                                    onPointerMove={handleSideResizeMove}
+                                    onPointerUp={handleSideResizeUp}
+                                    onPointerCancel={handleSideResizeUp}
+                                  />
+                                ))}
+                            </>
+                          );
+                        }}
+                      >
+                        <div ref={cropSizerRef} />
+                      </ReactCrop>
+                    </div>
+                  </CropRotateArea>
 
                   {(isStraightenActive ||
                     isGuidedPerspectiveActive ||

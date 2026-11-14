@@ -464,6 +464,14 @@ pub struct WorkspaceState {
     /// Missing in older settings (0); the frontend migrates those layouts once.
     #[serde(default)]
     pub layout_version: u32,
+    #[serde(default = "default_filmstrip_columns")]
+    pub filmstrip_columns: u32,
+    #[serde(default)]
+    pub filmstrip_show_file_info: bool,
+}
+
+fn default_filmstrip_columns() -> u32 {
+    2
 }
 
 impl Default for WorkspaceState {
@@ -515,6 +523,8 @@ impl Default for WorkspaceState {
             active_panels,
             panel_switcher_placement,
             layout_version: 1,
+            filmstrip_columns: default_filmstrip_columns(),
+            filmstrip_show_file_info: false,
         }
     }
 }

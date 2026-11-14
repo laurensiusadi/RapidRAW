@@ -849,6 +849,7 @@
         "focalLength": "Focal Length",
         "iso": "ISO",
         "lens": "Lens",
+        "model": "Model",
         "shutterSpeed": "Shutter Speed",
         "title": "Camera Details"
       },
@@ -959,6 +960,7 @@
         "adjust": "Adjust",
         "crop": "Crop",
         "export": "Export",
+        "filmstrip": "Filmstrip",
         "info": "Info",
         "inpaint": "Inpaint",
         "masks": "Masks",
@@ -1484,10 +1486,7 @@
       "originalRatio": "Original Ratio"
     },
     "thumbnailSize": {
-      "large": "Large",
-      "list": "List",
-      "medium": "Medium",
-      "small": "Small"
+      "list": "List"
     },
     "tooltips": {
       "communityPresets": "Community Presets",
@@ -2409,13 +2408,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} of {{total}} images selected",
       "tooltips": {
-        "collapseFilmstrip": "Collapse Filmstrip",
         "collapseLeft": "Collapse Left Panel",
         "collapseRight": "Collapse Right Panel",
         "copyPasteSettings": "Copy & Paste Settings",
         "copySettings": "Copy Settings",
         "customZoom": "Click to enter custom zoom percentage",
-        "expandFilmstrip": "Expand Filmstrip",
         "expandLeft": "Expand Left Panel",
         "expandRight": "Expand Right Panel",
         "export": "Export",

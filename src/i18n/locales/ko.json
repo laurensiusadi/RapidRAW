@@ -843,6 +843,7 @@
         "focalLength": "초점 거리",
         "iso": "ISO",
         "lens": "렌즈",
+        "model": "모델",
         "shutterSpeed": "셔터 속도",
         "title": "카메라 세부 정보"
       },
@@ -953,6 +954,7 @@
         "adjust": "조정",
         "crop": "자르기",
         "export": "내보내기",
+        "filmstrip": "필름스트립",
         "info": "정보",
         "inpaint": "인페인팅",
         "masks": "마스크",
@@ -1475,10 +1477,7 @@
       "originalRatio": "원본 비율"
     },
     "thumbnailSize": {
-      "large": "크게",
-      "list": "목록",
-      "medium": "보통",
-      "small": "작게"
+      "list": "목록"
     },
     "tooltips": {
       "communityPresets": "커뮤니티 프리셋",
@@ -2400,13 +2399,11 @@
     "bottomBar": {
       "imagesSelected": "이미지 {{total}}개 중 {{current}}개 선택됨",
       "tooltips": {
-        "collapseFilmstrip": "필름스트립 접기",
         "collapseLeft": "왼쪽 패널 접기",
         "collapseRight": "오른쪽 패널 접기",
         "copyPasteSettings": "설정 복사 및 붙여넣기",
         "copySettings": "설정 복사",
         "customZoom": "클릭하여 사용자 지정 확대/축소 비율 입력",
-        "expandFilmstrip": "필름스트립 펼치기",
         "expandLeft": "왼쪽 패널 펼치기",
         "expandRight": "오른쪽 패널 펼치기",
         "export": "내보내기",

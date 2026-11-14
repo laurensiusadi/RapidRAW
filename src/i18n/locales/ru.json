@@ -896,6 +896,7 @@
         "focalLength": "Фокусное расстояние",
         "iso": "ISO",
         "lens": "Объектив",
+        "model": "Модель",
         "shutterSpeed": "Выдержка",
         "title": "Параметры съемки"
       },
@@ -1006,6 +1007,7 @@
         "adjust": "Коррекция",
         "crop": "Обрезка",
         "export": "Экспорт",
+        "filmstrip": "Лента кадров",
         "info": "Инфо",
         "inpaint": "Восстановление",
         "masks": "Маски",
@@ -1547,10 +1549,7 @@
       "originalRatio": "Исходный формат"
     },
     "thumbnailSize": {
-      "large": "Большой",
-      "list": "Список",
-      "medium": "Средний",
-      "small": "Маленький"
+      "list": "Список"
     },
     "tooltips": {
       "communityPresets": "Пресеты сообщества",
@@ -2490,13 +2489,11 @@
     "bottomBar": {
       "imagesSelected": "Выбрано снимков: {{current}} из {{total}}",
       "tooltips": {
-        "collapseFilmstrip": "Свернуть ленту кадров",
         "collapseLeft": "Свернуть левую панель",
         "collapseRight": "Свернуть правую панель",
         "copyPasteSettings": "Копирование и вставка настроек",
         "copySettings": "Копировать настройки",
         "customZoom": "Нажмите, чтобы ввести произвольный масштаб в процентах",
-        "expandFilmstrip": "Развернуть ленту кадров",
         "expandLeft": "Развернуть левую панель",
         "expandRight": "Развернуть правую панель",
         "export": "Экспорт",
